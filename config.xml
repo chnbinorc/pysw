@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Root>
+	<!-- 数据库设置 -->
+	<DataConfigs>
+		<Config Name="tushare" token="39956a10efc09429356600eae9bf58a7519347b12364afe2b74a1873"/>
+		<Config Name="local" path="data" />
+	</DataConfigs>
+	<!-- 模块配置 -->
+	<ModeulConfigs>
+		<Config Name="trade" ambegin="09:30:00" amend="11:30:00" pmbegin="13:00:00" pmend="15:00:00" />
+		<Config Name="daywork" path="data" />
+	</ModeulConfigs>
+</Root>
