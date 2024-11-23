@@ -1,9 +1,18 @@
 
+import pandas as pd
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+pd.set_option('max_colwidth',10000)
+pd.set_option('display.width',10000)
+
 class datesum:
     # path = 'C:/Users/Administrator/Desktop/123.txt'
 
     def __init__(self):
         self.path = 'C:/Users/Administrator/Desktop/123.txt'
+        self.ds = None
+        self.idx = 0
 
     def readfile(self):
         k = 0.0
@@ -16,19 +25,30 @@ class datesum:
                 k += round(float(line.strip('\n')),2)
                 n += round(float(line.strip('\n')),2)
             elif line.startswith('date'):
-                d += 1
-
-            if line.startswith('date'):
                 if not n == -1:
-                    print('小计:{0}'.format(round(n,2)))
-                    print('\n')
-                n = 0.0
+                    print('日期：{0},小计:{1}'.format(date, (round(n, 2))))
+                    self.writefile(date, round(n, 2))
+                    n = 0.0
+                d += 1
+                # 日期
+                date = line.strip('\n').replace('date:', '')
 
             if not line.startswith('\n'):
                 print(line.strip('\n'))
             line = f.readline()
 
-        print('小计:{0}'.format(round(n,2)))
+        print('日期：{0},小计:{1}'.format(date,(round(n,2))))
+        self.writefile(date, round(n, 2))
         print('\n')
+        print(self.ds)
 
         print('天数:{0},总计：{1},平均每天花费:{2}'.format(d,round(k,2),round(k/d,2)))
+
+    def writefile(self,date,count):
+        columns = ['日期','小计']
+        if self.ds is None:
+            self.ds = pd.DataFrame(columns=columns,index=[])
+        self.ds.loc[self.idx] = [date,count]
+        self.idx += 1
+
+
