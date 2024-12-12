@@ -52,3 +52,19 @@ class CConfigs:
                 if item.hasAttribute('Name') and item.getAttribute('Name') == name:
                     return item.getAttribute(key)
         return ""
+
+    def getDataConfig(self, name, key):
+        if CConfigs._dataConfigs is not None:
+            configs = CConfigs._dataConfigs[0].getElementsByTagName('Config')
+            for item in configs:
+                if item.hasAttribute('Name') and item.getAttribute('Name') == name:
+                    return item.getAttribute(key)
+        return ""
+
+    def getModeulConfig(self, name, key):
+        if CConfigs._moduleConfigs is not None:
+            configs = CConfigs._moduleConfigs[0].getElementsByTagName('Config')
+            for item in configs:
+                if item.hasAttribute('Name') and item.getAttribute('Name') == name:
+                    return item.getAttribute(key)
+        return ""

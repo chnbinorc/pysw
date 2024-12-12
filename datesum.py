@@ -1,6 +1,6 @@
 
 import pandas as pd
-
+from CCommon import log
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('max_colwidth',10000)
@@ -26,7 +26,7 @@ class datesum:
                 n += round(float(line.strip('\n')),2)
             elif line.startswith('date'):
                 if not n == -1:
-                    print('日期：{0},小计:{1}'.format(date, (round(n, 2))))
+                    log('日期：{0},小计:{1}'.format(date, (round(n, 2))))
                     self.writefile(date, round(n, 2))
                     n = 0.0
                 d += 1
@@ -34,15 +34,15 @@ class datesum:
                 date = line.strip('\n').replace('date:', '')
 
             if not line.startswith('\n'):
-                print(line.strip('\n'))
+                log(line.strip('\n'))
             line = f.readline()
 
-        print('日期：{0},小计:{1}'.format(date,(round(n,2))))
+        log('日期：{0},小计:{1}'.format(date,(round(n,2))))
         self.writefile(date, round(n, 2))
-        print('\n')
-        print(self.ds)
+        log('\n')
+        log(self.ds)
 
-        print('天数:{0},总计：{1},平均每天花费:{2}'.format(d,round(k,2),round(k/d,2)))
+        log('天数:{0},总计：{1},平均每天花费:{2}'.format(d,round(k,2),round(k/d,2)))
 
     def writefile(self,date,count):
         columns = ['日期','小计']

@@ -12,3 +12,6 @@ BIG_BOARD_TYPE_4 = 4    # 科创板
 
 ONE_YEARE_DAYS = 365    # 年天数
 ONE_MONTH_DAYS = 30     # 月天数
+ONE_WEAK_DAYS = 7       # 星期数
+
+MAIN_CONDITION_STR = "market == '主板' | market == '中小板'"
