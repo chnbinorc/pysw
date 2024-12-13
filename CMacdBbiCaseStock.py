@@ -87,7 +87,7 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         xflag = False
         idx = 0
         now = self.cts.getLastTradeDate()
-        target = CTools.getDateDelta(now,-4)
+        target = CTools.getDateDelta(now,-3)
         diff = None
         for i, row in df.iterrows():
             if idx < 15:

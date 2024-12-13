@@ -68,7 +68,7 @@ class CIndicatorAI:
             kshape_model = KShape.from_pickle(filename)
             labels = kshape_model.fit_predict(data_scaled)
         else:
-            kshape_model = KShape(n_clusters=n_clusters, verbose=False, random_state=seed)
+            kshape_model = KShape(n_clusters=n_clusters, verbose=False, random_state=42)
             labels = kshape_model.fit_predict(data_scaled)
             kshape_model.to_pickle(filename)
         dbsource = pd.read_csv('D:/temp/bbidata.csv')
