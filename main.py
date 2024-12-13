@@ -33,10 +33,19 @@ if __name__ == '__main__':
     # md.doWork()
 
     # 日终任务
-    md.dayWork()
+    # md.dayWork()
 
     # 生成BBImacd指标模型
     # md.genMacdBbiModel()
+
+    # 生成预处理数据
+    # md.genPreData()
+    md.analyDay()
+
+    # db = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv')
+    # db.sort_values(by='succeed',ascending=False,inplace=True)
+    # print(db)
+
 
     # stock = CMacdBbiCaseStock('000002.SZ')
     # stock.test()

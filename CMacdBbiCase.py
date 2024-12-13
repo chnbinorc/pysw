@@ -1,3 +1,7 @@
+import math
+
+import numpy as np
+
 import CCaseBase
 import os
 import CTushare as cts
@@ -6,6 +10,7 @@ import pandas as pd
 import Constants
 import CTools
 from CMacdBbiCaseStock import CMacdBbiCaseStock
+from CIndicatorAI import  CIndicatorAI
 
 # macd,bbi,obv 指标，批量处理
 
@@ -17,36 +22,81 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         if not os.path.exists(self.predictMacdBbiPath):
             os.mkdir(self.predictMacdBbiPath)
         self.cts = cts.CTushare()
+        self.cia = CIndicatorAI()
         return
 
     # 生成预测数据，便于实际运行计算
     def genPredictData(self):
-        # now = datetime.datetime.now().strftime('%Y%m%d')
-        # result = None
-        # if not self.cts.isTradeDate(now):
-        #     return
+        # 获取满足双金叉数据
+        now = self.cts.getLastTradeDate()
+        filename = f'd:/temp/predictdata_{now}.csv'
         df = self.cts.filterStocks()
+        db = self.getDoubleGoldBBI(df)
+        if db is not None and db.shape[0] > 0:
+            dk = db.copy()
+            dk = dk.drop(columns=['quaprice', 'quavol', 'ts_code', 'trade_date'])
+            arr = np.array(dk).reshape(-1, 12, 1)
+            labels = self.cia.fit_kshape(arr)
+            db['label'] = labels
+            # db.to_csv('d:/temp/predictdata.csv',index=False)
+            db.to_csv(filename, index=False)
 
+    def analy(self):
+        now = self.cts.getLastTradeDate()
+        filename = f'd:/temp/predictdata_{now}.csv'
+        if not os.path.exists(filename):
+            now = self.cts.getPreTradeDate()
+            filename = f'd:/temp/predictdata_{now}.csv'
+            if not os.path.exists(filename):
+                print(f'文件不存在，请生成预处理文件:{filename}')
+                return
+        db = pd.read_csv(filename)
+        # db = pd.read_csv('d:/temp/predictdata.csv')
+        dk = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv')
+        dd = pd.merge(db, dk, on=['quaprice', 'quavol', 'label'], how='left')
+        dz = dd[['quaprice', 'quavol', 'label', 'ts_code', 'trade_date', 'succeed', 'simples']].copy()
+        dz.sort_values(by='succeed', ascending=False, inplace=True)
+
+        income = pd.Series()
+        range = pd.Series()
+        for i,row in dz.iterrows():
+            fname = f'{self.stockIndiPath}{row.ts_code}.csv'
+            if not os.path.exists(fname):
+                income.loc[len(income)] = math.nan
+                range.loc[len(range)] = math.nan
+            else:
+                cond = f'trade_date >= {row.trade_date}'
+                subdb = pd.read_csv(fname).query(cond)
+                subdb.sort_values(by='trade_date',inplace=True)
+                range.loc[len(range)] = round( (subdb.iloc[0]['close'] - subdb.iloc[0]['BBI']) / subdb.iloc[0]['BBI'],3)
+                if len(subdb) == 1:
+                    income.loc[len(income)] = 0
+                else:
+                    income.loc[len(income)] = round((subdb.iloc[len(subdb)-1]['close'] - subdb.iloc[0]['close']) / subdb.iloc[0]['close'],3)
+        dz['income'] = income.values
+        dz['range'] = range.values
+        dz.sort_values(by='succeed', ascending=False,inplace=True)
+        print(dz)
 
     # 查询个股最近一个月双金叉情况，如果双金叉在3个交易日内发生，则返回最近此双金叉前12个交易日的BBI变化数组，包含此双金叉发生的交易日
-    def getDoubleGoldBBI(self,db):
-        db = None
+    def getDoubleGoldBBI(self, db):
+        cols = ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 'quaprice', 'quavol',
+                'ts_code', 'trade_date']
+        data = pd.DataFrame(columns=cols)
         for i, row in db.iterrows():
             stock = CMacdBbiCaseStock(row.ts_code)
-            dk = stock.getRecentSignData()
-            if dk is not None:
-                if db is None:
-                    db = dk
-                else:
-                    db = pd.concat([db, dk], ignore_index=True, axis=0)
-        print(db)
+            sbbi = stock.getRecentSignData()
+            if sbbi is not None:
+                data.loc[len(data)] = sbbi.values
+        return data
 
-    def checkBBIGold(self,df):
-        return
-    def checkMacdGold(self,df):
+    def checkBBIGold(self, df):
         return
 
-    def buyCondition(self,df):
+    def checkMacdGold(self, df):
+        return
+
+    def buyCondition(self, df):
         return
 
     # 过滤股票
@@ -68,11 +118,6 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         db = None
         idx = 0
         for i, row in self.cts.filterStocks().iterrows():
-            # if row.ts_code != '000977.SZ':
-            #     continue
-            # print(row['ts_code'])
-            # if idx > 600:
-            #     break
             stock = CMacdBbiCaseStock(row.ts_code)
             dk = stock.simpleIndicatorModel()
             if dk is None or dk.shape[0] == 0:

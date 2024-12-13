@@ -36,7 +36,7 @@ class CIndicatorAI:
 
     def fit_kshape(self,data):
         filename = 'd:/temp/kshape_day_10.pkl'
-        if os.path.exists(filename):
+        if not os.path.exists(filename):
             log('kshape_day_10.pkl 文件不存在')
             return None
 
@@ -91,7 +91,7 @@ class CIndicatorAI:
 
     def test_make_kshape_day_10(self):
         db = pd.read_csv('d:/temp/bbidata.csv')
-        cols = ['price', 'vol', 'label', 'succeed', 'fail', 'simples']
+        cols = ['quaprice', 'quavol', 'label', 'succeed', 'fail', 'simples']
         dbStd = pd.DataFrame(columns=cols)
         for i in range(5):
             for j in range(5):

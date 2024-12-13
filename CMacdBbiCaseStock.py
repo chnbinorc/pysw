@@ -44,7 +44,7 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         ret = bool(xflag) ^ (arg1 > arg2)
         flag = xflag
         if ret:
-            flag = ~xflag
+            flag = not xflag
         return ret, flag
 
     def getTestData(self,days=Constants.ONE_YEARE_DAYS):
@@ -52,7 +52,7 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         now = self.cts.getLastTradeDate()
         # now = datetime.datetime.now().strftime('%Y%m%d')
         start = CTools.getDateDelta(now, round(- days))
-        df = pd.read_csv(filename).query('trade_date > ' + start)
+        df = pd.read_csv(filename).query('trade_date > ' + start).sort_values(by=['trade_date'], ascending=True)
         return df
 
     # 采样: 双金叉，判断bbi走势，价格位置，成交量，,BBI周期，空间（上涨或下跌空间暂时不考虑）
@@ -72,8 +72,8 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
                 continue
             ret, xflag = self.calX(xflag, row['close'], row['BBI'])
             if ret and xflag:
-                quaPrice = self.calQuaPoint(df, 'close', row['close'])
-                quaVol = self.calQuaPoint(df, 'vol', row['vol'])
+                quaPrice = self.calQuaPoint(df, 'close', row['BBI'])
+                quaVol = self.calQuaPoint(df, 'vol', row['VOL5'])
                 sbbi = self.analyCode(df, idx - 11, idx + 1, quaPrice, quaVol)
                 data.loc[len(data)] = sbbi.values
             idx += 1
@@ -82,25 +82,35 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
     # 获取在最近3个交易日的产生双金叉信号的数据
     def getRecentSignData(self):
         db = self.getTestData()
-        quaPrice = 0
-        quaVol = 0
-        df = self.getTestData(Constants.ONE_WEAK_DAYS)
+        df = self.getTestData(Constants.ONE_MONTH_DAYS)
         df.reset_index()
         xflag = False
         idx = 0
         now = self.cts.getLastTradeDate()
-        target = CTools.getDateDelta(now,-3)
-        cols = ['ts_code', 'trade_date','label', 'quaprice', 'quavol']
-        data = pd.DataFrame(columns=cols)
+        target = CTools.getDateDelta(now,-4)
+        diff = None
         for i, row in df.iterrows():
+            if idx < 15:
+                idx += 1
+                continue
             ret, xflag = self.calX(xflag, row['close'], row['BBI'])
-            if ret and xflag and int(row['trade_date']) > target:
-                quaPrice = self.calQuaPoint(db, 'close', row['close'])
-                quaVol = self.calQuaPoint(db, 'vol', row['vol'])
-                arr = np.array(df[idx-11:idx+1]).reshape(-1, 12, 1)
-                sz = self.cia.fit_kshape(arr)
-                data.loc[0] = [row['ts_code'],row['trade_date'],sz[0],quaPrice,quaVol]
-        return data
+            if ret and xflag and int(row['trade_date']) > int(target):
+                quaPrice = self.calQuaPoint(db, 'close', row['BBI'])
+                quaVol = self.calQuaPoint(db, 'vol', row['VOL5'])
+                temp = df[idx-11:idx+1].copy()
+                baseClose = temp.iloc[0]['PRE_BBI']
+                diff = temp.apply(lambda x: round((x['BBI'] - baseClose) / baseClose, 3), axis=1)
+                diff.loc[len(diff)] = quaPrice
+                diff.loc[len(diff)] = quaVol
+                diff.loc[len(diff)] = row['ts_code']
+                diff.loc[len(diff)] = row['trade_date']
+                break
+                # arr = np.array(diff).reshape(-1, 12, 1)
+                # sz = self.cia.fit_kshape(arr)
+                # if sz is not None:
+                #     data.loc[0] = [row['ts_code'],row['trade_date'],sz[0],quaPrice,quaVol]
+            idx += 1
+        return diff
 
     def calQuaPoint(self, df, col, val):
         quaLev = df[col].quantile([0.2, 0.4, 0.6, 0.8])

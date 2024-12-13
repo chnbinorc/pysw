@@ -30,6 +30,7 @@ class CMethod:
         self.tools = ctools.CTools()
         self.crt = crt.ClsRealTime()
         self.realdata = realdata.CRealData(self.trigger)
+        self.bbicase = CMacdBbiCase()
 
     # region  ============日终任务============
 
@@ -37,9 +38,9 @@ class CMethod:
     def dayWork(self):
         log('============开始日终处理============')
         log('更新备用数据')
-        # self.doBakData()
+        self.doBakData()
         log('更新日线行情数据')
-        # self.doDayData()
+        self.doDayData()
         log('更新指标数据分析')
         self.doIndicators(False)
         # log('============日终处理结束============')
@@ -49,6 +50,8 @@ class CMethod:
     def evtIndicatorsCompletDay(self, start, end):
         self.strate.completTitles += 1
         if self.strate.completTitles == self.strate.titles:
+            log('============生成最近交易日预处理数据============')
+            self.genPreData()
             log('============日终处理结束============')
         else:
             log(f'日终指标数据生成情况：总数{self.strate.titles},完成{self.strate.completTitles}')
@@ -77,6 +80,13 @@ class CMethod:
                     self.cts.updateDailyCode(row.ts_code, ds)
             except Exception as er:
                 error(er)
+
+    # 生成预处理数据
+    def genPreData(self):
+        db = self.bbicase.genPredictData()
+
+    def analyDay(self):
+        self.bbicase.analy()
 
     def doDayDataCode(self, code):
         now = datetime.datetime.now().strftime('%Y%m%d')
@@ -174,6 +184,6 @@ class CMethod:
         case = CMacdBbiCase()
         case.genMacdBBIModel()
         cia = CIndicatorAI()
-        cia.test_kshape(False)
+        cia.test_kshape(True)
         cia.test_make_kshape_day_10()
 
