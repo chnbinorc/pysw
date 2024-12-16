@@ -87,7 +87,7 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         xflag = False
         idx = 0
         now = self.cts.getLastTradeDate()
-        target = CTools.getDateDelta(now,-3)
+        target = CTools.getDateDelta(now,-4)
         diff = None
         for i, row in df.iterrows():
             if idx < 15:
@@ -99,7 +99,8 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
                 quaVol = self.calQuaPoint(db, 'vol', row['VOL5'])
                 temp = df[idx-11:idx+1].copy()
                 baseClose = temp.iloc[0]['PRE_BBI']
-                diff = temp.apply(lambda x: round((x['BBI'] - baseClose) / baseClose, 3), axis=1)
+                # diff = temp.apply(lambda x: round((x['BBI'] - baseClose) / baseClose, 3), axis=1)
+                diff = pd.Series(temp['BBI'])
                 diff.loc[len(diff)] = quaPrice
                 diff.loc[len(diff)] = quaVol
                 diff.loc[len(diff)] = row['ts_code']
@@ -125,7 +126,8 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         # 计算前12日的BBI差值
         temp = df[start:end]
         baseClose = temp.iloc[0]['PRE_BBI']
-        diff = temp.apply(lambda x: round((x['BBI'] - baseClose) / baseClose, 3), axis=1)
+        # diff = temp.apply(lambda x: round((x['BBI'] - baseClose) / baseClose, 3), axis=1)
+        diff = pd.Series(temp['BBI'])
         # 计算收益情况，历经天数，成交量
         base = temp.iloc[11]['close']
         income = 0

@@ -14,6 +14,8 @@ from sklearn import cluster, covariance, manifold
 import warnings
 import numpy
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
 from tslearn.clustering import KShape
 from tslearn.datasets import CachedDatasets
 from tslearn.preprocessing import TimeSeriesScalerMeanVariance
@@ -43,7 +45,7 @@ class CIndicatorAI:
         scaler = TimeSeriesScalerMeanVariance()
         data_scaled = scaler.fit_transform(data)
         kshape_model = KShape.from_pickle(filename)
-        labels = kshape_model.fit_predict(data_scaled)
+        labels = kshape_model.predict(data_scaled)
         return labels
 
     def test_kshape(self, draw=False):
@@ -78,8 +80,8 @@ class CIndicatorAI:
         if draw:
             plt.figure()
             for yi in range(10):
-                print(len(data[labels == yi]))
-                for xx in data[labels == yi]:
+                print(len(data_scaled[labels == yi]))
+                for xx in data_scaled[labels == yi]:
                     plt.plot(xx.ravel(), "k-", alpha=.2)
                 plt.plot(kshape_model.cluster_centers_[yi].ravel(), "r-")
                 plt.xlim(-1, sz)
@@ -113,3 +115,39 @@ class CIndicatorAI:
         dbStd.to_csv('d:/temp/bbidata_kshape_day_10_std.csv', index=False)
         print(dbStd.query('succeed > 0.6'))
         print(dbStd)
+
+    def test_draw_std(self):
+        df = pd.read_csv('D:/temp/bbidata.csv').query('quaprice == 0 and quavol == 3 and label == 3')
+        dk = df.query('income > 0.1').copy()
+        dk.drop(columns=['quaprice', 'quavol', 'days', 'income', 'ts_code', 'trade_date', 'label'],inplace=True)
+        data = np.array(dk).reshape(-1, 12, 1)
+        scaler = TimeSeriesScalerMeanVariance()
+        data_scaled = scaler.fit_transform(data)
+
+        print(df)
+        dz = df.query('ts_code == "600845.SH"').copy()
+        print(dz)
+        dz.drop(columns=['quaprice', 'quavol', 'days', 'income', 'ts_code', 'trade_date', 'label'], inplace=True)
+        data2 = np.array(dz).reshape(-1, 12, 1)
+        data_scaled2 = scaler.fit_transform(data2)
+
+        filename = 'd:/temp/kshape_day_10.pkl'
+        kshape_model = KShape.from_pickle(filename)
+
+        plt.figure()
+
+        # for xx in data_scaled:
+        #     plt.plot(xx.ravel(), "k-", alpha=.2)
+
+        for yy in data_scaled2:
+            plt.plot(yy.ravel(), "b-", alpha=.2)
+
+        plt.plot(kshape_model.cluster_centers_[3].ravel(), "r-")
+        plt.xlim(-1, 12)
+        plt.ylim(-2, 2)
+        plt.tight_layout()
+        filename = f'd:/temp/test_{3}.png'
+        # plt.savefig(filename, bbox_inches='tight')
+        # plt.cla()
+        plt.show()
+

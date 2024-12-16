@@ -120,6 +120,74 @@ class CMethod:
         #     count += 1
         # return
 
+    def test_draw_std(self):
+        cia = CIndicatorAI()
+        cia.test_draw_std()
+
+    def test_stat2(self):
+        filename = 'd:/temp/bbidata.csv'
+        db = pd.read_csv(filename).query('income > 0').copy()
+        print(db.shape[0])
+        dk = db.apply(lambda row: self.calCloseBBI(row),axis=1)
+        db['flag'] = dk.values
+        print(db.groupby('flag')['flag'].count())
+
+    def calCloseBBI(self,row):
+        path = self.strate.stockIndicatorsPath
+        nextdate = self.cts.getNextTradeDate(row.trade_date)
+        filename = f'{path}{row.ts_code}.csv'
+        db = pd.read_csv(filename).query(f'ts_code == "{row.ts_code}" and trade_date == {nextdate}')
+        if db is None or db.shape[0] == 0:
+            print(f'filename:{filename},ts_code:{row.ts_code},date:{row.trade_date}')
+            return -1
+        else:
+            if (db.iloc[0]['close'] - db.iloc[0]['pre_close']) / db.iloc[0]['pre_close'] > 0.00:
+                return 1
+            else:
+                return 0
+    def test_stats(self):
+        filename = 'd:/temp/bbidata.csv'
+        db = pd.read_csv(filename).query('income > 0')
+        print(db.shape[0])
+        db2 = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv').query('succeed > 0.6')
+        print(db2.shape[0])
+        db2.drop(columns=['succeed','fail','simples'],inplace=True)
+        dk = pd.merge(db,db2,how='inner',on=['quaprice', 'quavol', 'label'])
+        print(dk.shape[0])
+        # # dz = db.apply(lambda x: datetime.datetime.strptime(str(x['trade_date']),'%Y%m%d').isoweekday(),axis=1)
+        # # db['ndate'] = dz.values
+        # # print(db.groupby('ndate')['ndate'].count())
+        dz = dk.apply(lambda x: self.calPrice(x),axis=1)
+        dk['rate'] = dz.values
+        print(dk.groupby('rate')['rate'].count())
+
+    def calPrice(self,row):
+        # rate = round((row.s11 - row.s10)/ row.s10,3)
+        sz = pd.Series(row).drop(labels=['quaprice','quavol','days','income','ts_code','trade_date','label'])
+        rate = round( (sz.max() - sz.min()) / sz.min(),3)
+        if rate < 0:
+            return 0
+        elif rate < 0.01:
+            return 1
+        elif rate < 0.02:
+            return 2
+        elif rate < 0.03:
+            return 3
+        elif rate < 0.04:
+            return 4
+        elif rate < 0.05:
+            return 5
+        elif rate < 0.06:
+            return 6
+        elif rate < 0.07:
+            return 7
+        elif rate < 0.08:
+            return 8
+        elif rate < 0.09:
+            return 9
+        else:
+            return 10
+
     # 过滤股票
     def filterStocks(self):
         """ 查询主板和中小板 """

@@ -195,6 +195,14 @@ class CTushare:
             s = s - datetime.timedelta(days=1)
         return s.strftime('%Y%m%d')
 
+    def getNextTradeDate(self,date):
+        s = datetime.datetime.strptime(str(date),'%Y%m%d')
+        for i in range(1,20):
+            nextdate = s + datetime.timedelta(days=i)
+            if self.isTradeDate(nextdate.strftime('%Y%m%d')):
+                return nextdate.strftime('%Y%m%d')
+        return None
+
     # 股票曾用名
     # code: 股票代码
     # start: 开始日期

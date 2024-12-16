@@ -55,7 +55,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         dk = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv')
         dd = pd.merge(db, dk, on=['quaprice', 'quavol', 'label'], how='left')
         dz = dd[['quaprice', 'quavol', 'label', 'ts_code', 'trade_date', 'succeed', 'simples']].copy()
-        dz.sort_values(by='succeed', ascending=False, inplace=True)
+        # dz.sort_values(by='succeed', ascending=False, inplace=True)
 
         income = pd.Series()
         range = pd.Series()
@@ -75,7 +75,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
                     income.loc[len(income)] = round((subdb.iloc[len(subdb)-1]['close'] - subdb.iloc[0]['close']) / subdb.iloc[0]['close'],3)
         dz['income'] = income.values
         dz['range'] = range.values
-        dz.sort_values(by='succeed', ascending=False,inplace=True)
+        dz.sort_values(by=['trade_date','income'], ascending=False,inplace=True)
         print(dz)
 
     # 查询个股最近一个月双金叉情况，如果双金叉在3个交易日内发生，则返回最近此双金叉前12个交易日的BBI变化数组，包含此双金叉发生的交易日
@@ -117,6 +117,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
     def genMacdBBIModel(self):
         db = None
         idx = 0
+        print(len(self.cts.filterStocks()))
         for i, row in self.cts.filterStocks().iterrows():
             stock = CMacdBbiCaseStock(row.ts_code)
             dk = stock.simpleIndicatorModel()
@@ -127,6 +128,8 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             else:
                 db = pd.concat([db, dk], ignore_index=True, axis=0)
             idx += 1
+            if idx % 100 == 0:
+                print(idx)
         if db is not None:
             db.to_csv('d:/temp/bbidata.csv', index=False, encoding="utf_8_sig")
 

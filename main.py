@@ -1,4 +1,5 @@
 # -*- coding: UTF-8 -*-
+import datetime
 import math
 
 import CConfigs as configs
@@ -16,6 +17,7 @@ import CMethod as method
 import CMacdBbiCase as macd
 from CMacdBbiCaseStock import CMacdBbiCaseStock
 from queue import Queue
+import numpy as np
 
 if __name__ == '__main__':
     configs = configs.CConfigs()
@@ -23,10 +25,10 @@ if __name__ == '__main__':
     cts = CTushare.CTushare()
     strate = strate.CStrategy()
 
-    # df = pd.read_csv('D:/work/StockWinner/source/pysw/data/indicators/000977.SZ.csv')
+    # df = pd.read_csv('D:/work/StockWinner/source/pysw/data/indicators/000981.SZ.csv')
     # print(dk)
     # strate.genIndicatorsDayCode('000977.SZ')
-    # strate.draw('000977.SZ',df,'000977.SZ')
+    # strate.draw('000981.SZ',df,'000981.SZ')
     # strate.drawMpf(df)
 
     # cts.qryPoints()
@@ -40,7 +42,24 @@ if __name__ == '__main__':
 
     # 生成预处理数据
     md.genPreData()
-    md.analyDay()
+    # md.analyDay()
+    # md.test_stat2()
+    # md.test_draw_std()
+
+
+    # db = pd.read_csv('d:/temp/bbidata.csv').query('quaprice == 0 and quavol == 3 and label == 6')
+    # # print(db)
+    # # print(db.shape[0])
+    # dz = db.copy()
+    #
+    # tmp = pd.Series()
+    # dz.drop(columns=['quaprice','quavol','days','income','ts_code','trade_date','label'],inplace=True)
+    # for i,row in dz.iterrows():
+    #     arr = np.array(row)
+    #     tmp.loc[len(tmp)] = round(max(arr) - min(arr),3)
+    # # print(tmp)
+    # db['bbi_range'] = tmp.values
+    # print(db.sort_values(by='income'))
 
     # db = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv')
     # db.sort_values(by='succeed',ascending=False,inplace=True)
