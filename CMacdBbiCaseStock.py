@@ -6,10 +6,12 @@ import CTushare as cts
 import datetime
 import pandas as pd
 import Constants
+from CStrategy import CStrategy
 from CTools import CTools
 import numpy as np
 from CCommon import log, error, warning
 from CIndicatorAI import CIndicatorAI
+from copy import deepcopy
 
 PERIOD_BOTTOM = '波谷'
 PERIOD_TOP = '波峰'
@@ -47,7 +49,7 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
             flag = not xflag
         return ret, flag
 
-    def getTestData(self,days=Constants.ONE_YEARE_DAYS):
+    def getTestData(self, days=Constants.ONE_YEARE_DAYS):
         filename = '{0}{1}.csv'.format(self.stockIndiPath, self.code)
         now = self.cts.getLastTradeDate()
         # now = datetime.datetime.now().strftime('%Y%m%d')
@@ -63,7 +65,7 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         idx = 0
         cols = ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 'quaprice', 'quavol', 'days',
                 'income',
-                'ts_code', 'trade_date']
+                'ts_code', 'trade_date', 'macd_diff', 'macd_dea', 'macd']
         # 生成采样数据 近一年BBI macd双金叉
         data = pd.DataFrame(columns=cols)
         for i, row in df.iterrows():
@@ -73,7 +75,7 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
             ret, xflag = self.calX(xflag, row['close'], row['BBI'])
             if ret and xflag:
                 quaPrice = self.calQuaPoint(df, 'close', row['BBI'])
-                quaVol = self.calQuaPoint(df, 'vol', row['VOL5'])
+                quaVol = self.calQuaPoint(df, 'vol', row['vol'])
                 sbbi = self.analyCode(df, idx - 11, idx + 1, quaPrice, quaVol)
                 data.loc[len(data)] = sbbi.values
             idx += 1
@@ -87,7 +89,7 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         xflag = False
         idx = 0
         now = self.cts.getLastTradeDate()
-        target = CTools.getDateDelta(now,-4)
+        target = CTools.getDateDelta(now, -4)
         diff = None
         for i, row in df.iterrows():
             if idx < 15:
@@ -96,8 +98,8 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
             ret, xflag = self.calX(xflag, row['close'], row['BBI'])
             if ret and xflag and int(row['trade_date']) > int(target):
                 quaPrice = self.calQuaPoint(db, 'close', row['BBI'])
-                quaVol = self.calQuaPoint(db, 'vol', row['VOL5'])
-                temp = df[idx-11:idx+1].copy()
+                quaVol = self.calQuaPoint(db, 'vol', row['vol'])
+                temp = df[idx - 11:idx + 1].copy()
                 baseClose = temp.iloc[0]['PRE_BBI']
                 # diff = temp.apply(lambda x: round((x['BBI'] - baseClose) / baseClose, 3), axis=1)
                 diff = pd.Series(temp['BBI'])
@@ -105,6 +107,9 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
                 diff.loc[len(diff)] = quaVol
                 diff.loc[len(diff)] = row['ts_code']
                 diff.loc[len(diff)] = row['trade_date']
+                diff.loc[len(diff)] = row['macd_diff']
+                diff.loc[len(diff)] = row['macd_dea']
+                diff.loc[len(diff)] = row['macd']
                 break
                 # arr = np.array(diff).reshape(-1, 12, 1)
                 # sz = self.cia.fit_kshape(arr)
@@ -153,8 +158,133 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         diff.loc[len(diff)] = round(income, 3)
         diff.loc[len(diff)] = temp.iloc[11]['ts_code']
         diff.loc[len(diff)] = temp.iloc[11]['trade_date']
+        diff.loc[len(diff)] = temp.iloc[11]['macd_diff']
+        diff.loc[len(diff)] = temp.iloc[11]['macd_dea']
+        diff.loc[len(diff)] = temp.iloc[11]['macd']
 
         return diff
+
+    def predictStockDay(self,date):
+        fname = f'{self.stockPriceDayPath}{self.code}.csv'
+        if not os.path.exists(fname):
+            error(f'文件不存在：{fname}')
+        db = pd.read_csv(fname).query(f'trade_date <= {date}').sort_values(by='trade_date')
+        db.reset_index(inplace=True, drop=True)
+        nowdate = self.cts.getNextTradeDate(date)
+        strate = CStrategy()
+
+        row = db.iloc[len(db)-1]
+        row.close = row.close * 1.005
+        row.trade_date = int(nowdate)
+        baseclose = row.close
+        preclose = row.close
+        db = db.append(row)
+        db.reset_index(inplace=True, drop=True)
+        count = 1
+        while True:
+            strate.genIndicatorsData(db)
+            it = db.iloc[len(db)-1]
+            bbiFlag = it.close > it.BBI
+            macdFlag = it.macd_diff > it.macd_dea
+
+            if bbiFlag and macdFlag:
+                preclose = it.close
+                break
+            else:
+                count += 1
+                # it.close = baseclose * (1 + count*0.005)
+                db.loc[len(db)-1,'close'] = baseclose * (1 + count*0.005)
+        quaVols = db['vol'].quantile([0.2, 0.4, 0.6, 0.8])
+        quaClose = self.calQuaPoint(db,'close',row.close)
+        return db,quaClose,quaVols,preclose
+
+    # label = 0,1,2,3,5,7
+    def filterBBIRange_0(self,date):
+        fname =f'{self.stockIndiPath}{self.code}.csv'
+        if not os.path.exists(fname):
+            error(f'指标数据不存在：{fname}')
+            return False
+        df = pd.read_csv(fname).sort_values(by='trade_date')
+        rangeFlag = False
+        dk = df.query(f'trade_date < {date}').tail(6)
+        diff = dk.apply(lambda row: round((row.close - row.BBI) / row.BBI, 3), axis=1)
+        for it in diff.values:
+            if it < -0.05:
+                rangeFlag = True
+                break
+        return rangeFlag
+
+    # label = 4,8,9
+    def filterBBIRange_1(self,date):
+        fname = f'{self.stockIndiPath}{self.code}.csv'
+        if not os.path.exists(fname):
+            error(f'指标数据不存在：{fname}')
+            return False
+        df = pd.read_csv(fname).sort_values(by='trade_date')
+        dk = df.query(f'trade_date < {date}').tail(12)
+        diff = dk.apply(lambda row: round((row.close - row.BBI) / row.BBI, 3), axis=1)
+        min = diff.values.min()
+        max = diff.values.max()
+        rangeFlag = True if max - min > 0.08 else False
+        return rangeFlag
+
+    # label = 6
+    def filterBBIRange_6(self,date):
+        rangeFlag = False
+        fname = f'{self.stockIndiPath}{self.code}.csv'
+        if not os.path.exists(fname):
+            error(f'指标数据不存在：{fname}')
+            return False
+        df = pd.read_csv(fname).sort_values(by='trade_date')
+        dm = df.query(f'trade_date < {date}').tail(12)
+        dk = dm.head(6)
+        diff = dk.apply(lambda row: round((row.close - row.BBI) / row.BBI, 3), axis=1)
+        for it in diff.values:
+            if it < -0.05:
+                rangeFlag = True
+                break
+        return rangeFlag
+
+    # 前12个交易日，过滤振幅小于5个点的数据,不包含当日，检查macd金叉信号
+    def filterPriceBBIRange_70_02(self, df,date):
+        rangeFlag = False
+        dk = df.query(f'trade_date < {date}').tail(6)
+        diff = dk.apply(lambda row: round((row.close - row.BBI) / row.BBI, 3), axis=1)
+        for it in diff.values:
+            if it < -0.05:
+                rangeFlag = True
+                break
+        macdFlag = self.filterMacdFlag(df,date)
+        return rangeFlag,macdFlag
+
+    def filterMacdFlag(self,df,date):
+        macdFlag = False
+        dz = df.query(f'trade_date == {date}')
+        if dz is not None and dz.shape[0] > 0:
+            macdFlag = dz.iloc[0]['macd_diff'] - dz.iloc[0]['macd_dea'] > 0
+        return macdFlag
+
+    def filterPriceBBIRange_70_48(self, df,date):
+        dk = df.query(f'trade_date < {date}').tail(12)
+        diff = dk.apply(lambda row: round((row.close - row.BBI) / row.BBI, 3), axis=1)
+        min = diff.values.min()
+        max = diff.values.max()
+        rangeFlag = True if max - min > 0.08 else False
+        macdFlag = self.filterMacdFlag(df,date)
+        return rangeFlag,macdFlag
+
+    def filterPriceBBIRange_50_6(self, df, date):
+        rangeFlag = False
+        dm = df.query(f'trade_date < {date}').tail(12)
+        dk = dm.head(6)
+        diff = dk.apply(lambda row: round((row.close - row.BBI) / row.BBI, 3), axis=1)
+        for it in diff.values:
+            if it < -0.05:
+                rangeFlag = True
+                break
+
+        macdFlag = self.filterMacdFlag(df, date)
+        return rangeFlag, macdFlag
 
     # 不成熟的
     def fight_1(self):

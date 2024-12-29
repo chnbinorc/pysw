@@ -92,11 +92,11 @@ class CStrategy:
         cond = 'close > 0' if condition == '' else condition
         temp = pd.read_csv(filepath)
         df = temp.query(cond).copy()
-        dk = self.genIndicatorsData(code, df)
+        dk = self.genIndicatorsData(df)
         dk.to_csv(filename, index=False, encoding="utf_8")
         return dk
 
-    def genIndicatorsData(self, code, df):
+    def genIndicatorsData(self, df):
         df.sort_values(by='trade_date', ascending=True, inplace=True)
         df['MA10_talib'] = talib.MA(df['close'], timeperiod=10)
         df['EMA12'] = talib.EMA(df['close'], timeperiod=6)

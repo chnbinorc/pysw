@@ -34,17 +34,25 @@ if __name__ == '__main__':
     # cts.qryPoints()
     # md.doWork()
 
+    # md.doBakDataBat(20241125,20241227)
+
     # 日终任务
     # md.dayWork()
 
+
     # 生成BBImacd指标模型
-    md.genMacdBbiModel()
+    # md.genMacdBbiModel()
 
     # 生成预处理数据
-    md.genPreData()
+    # md.genPreData()
     # md.analyDay()
     # md.test_stat2()
     # md.test_draw_std()
+    md.genTargetPredictStockDay()
+
+
+    # dk = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv').query('succeed > 0.5 and succeed <= 0.6').sort_values(by=['label','quaprice','quavol'])
+    # print(dk)
 
 
     # db = pd.read_csv('d:/temp/bbidata.csv').query('quaprice == 0 and quavol == 3 and label == 6')

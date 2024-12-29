@@ -139,7 +139,7 @@ class CTushare:
     # 自定义条件查询
     # condition: 查询条件
     def queryStockbaseBoardCust(self, condition):
-        df = pd.read_csv(self.stockBaseFile)
+        df = pd.read_csv(self.stockBaseFile).query('list_date < 20220101')
         return df.query(condition)
 
     # 交易日历
@@ -189,8 +189,13 @@ class CTushare:
             s = s - datetime.timedelta(days=1)
         return s.strftime('%Y%m%d')
 
-    def getPreTradeDate(self):
-        s = datetime.datetime.now() - datetime.timedelta(days=1)
+    def getPreTradeDate(self,date=None):
+        if date is None:
+            tdate = datetime.datetime.now()
+        else:
+            tdate = datetime.datetime.strptime(str(date),'%Y%m%d')
+
+        s = tdate - datetime.timedelta(days=1)
         while not self.isTradeDate(s.strftime('%Y%m%d')):
             s = s - datetime.timedelta(days=1)
         return s.strftime('%Y%m%d')
@@ -261,7 +266,7 @@ class CTushare:
         return df.query(condition)
 
     # 过滤股票
-    def filterStocks(self):
+    def filterStocks(self,condition='float_mv > 0'):
         """ 查询主板和中小板 """
         df = self.queryStockbaseBoardCust(Constants.MAIN_CONDITION_STR)
         da = self.queryBakBasic("industry != '银行'")
@@ -269,7 +274,7 @@ class CTushare:
         columns = ['ts_code', 'float_mv', 'total_mv', 'name_x',
                    'industry_x']
         dtmp = dk[columns].copy()
-        dtmp = dtmp.query('float_mv > 50').sort_values(by='industry_x')
+        dtmp = dtmp.query(condition).sort_values(by='industry_x')
         # dtmp = dk[columns].sort_values(by='industry_x')  # 按流通股排序 float_share, 按行业 industry_x
         Bool = dtmp.name_x.str.contains("ST")  # 去除ST
         dtmp = dtmp[~Bool]
@@ -367,6 +372,7 @@ class CTushare:
         s = now.strftime('%Y%m%d')
 
         while int(date) <= int(end):
+            print(date)
             filepath = self.stockBakDayPath + str(date) + '.csv'
             flag = False
             if (not os.path.exists(filepath)) | update:

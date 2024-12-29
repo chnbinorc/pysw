@@ -34,18 +34,19 @@ np.set_printoptions(threshold=np.inf)
 
 class CIndicatorAI:
     def __init__(self):
+        self.kshape_model = None
         return
 
     def fit_kshape(self,data):
-        filename = 'd:/temp/kshape_day_10.pkl'
-        if not os.path.exists(filename):
-            log('kshape_day_10.pkl 文件不存在')
-            return None
-
+        if self.kshape_model is None:
+            filename = 'd:/temp/kshape_day_10.pkl'
+            if not os.path.exists(filename):
+                log('kshape_day_10.pkl 文件不存在')
+                return None
+            self.kshape_model = KShape.from_pickle(filename)
         scaler = TimeSeriesScalerMeanVariance()
         data_scaled = scaler.fit_transform(data)
-        kshape_model = KShape.from_pickle(filename)
-        labels = kshape_model.predict(data_scaled)
+        labels = self.kshape_model.predict(data_scaled)
         return labels
 
     def test_kshape(self, draw=False):
@@ -53,9 +54,9 @@ class CIndicatorAI:
         numpy.random.seed(seed)
         df = pd.read_csv('D:/temp/bbidata.csv').copy()
         if 'label' in df.columns:
-            df = df.drop(columns=['quaprice', 'quavol', 'days', 'income', 'ts_code', 'trade_date', 'label'])
+            df = df.drop(columns=['quaprice', 'quavol', 'days', 'income', 'ts_code', 'trade_date','macd_diff','macd_dea','macd', 'label'])
         else:
-            df = df.drop(columns=['quaprice', 'quavol', 'days', 'income', 'ts_code', 'trade_date'])
+            df = df.drop(columns=['quaprice', 'quavol', 'days', 'income', 'ts_code', 'trade_date','macd_diff','macd_dea','macd'])
         data = np.array(df).reshape(-1, 12, 1)
         # numpy.random.shuffle(data)
 

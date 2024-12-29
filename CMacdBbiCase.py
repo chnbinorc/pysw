@@ -10,7 +10,9 @@ import pandas as pd
 import Constants
 import CTools
 from CMacdBbiCaseStock import CMacdBbiCaseStock
-from CIndicatorAI import  CIndicatorAI
+from CIndicatorAI import CIndicatorAI
+from CCommon import log, warning, error
+
 
 # macd,bbi,obv 指标，批量处理
 
@@ -30,11 +32,11 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         # 获取满足双金叉数据
         now = self.cts.getLastTradeDate()
         filename = f'd:/temp/predictdata_{now}.csv'
-        df = self.cts.filterStocks()
+        df = self.cts.filterStocks('float_mv > 50')
         db = self.getDoubleGoldBBI(df)
         if db is not None and db.shape[0] > 0:
             dk = db.copy()
-            dk = dk.drop(columns=['quaprice', 'quavol', 'ts_code', 'trade_date'])
+            dk = dk.drop(columns=['quaprice', 'quavol', 'ts_code', 'trade_date', 'macd_diff', 'macd_dea', 'macd'])
             arr = np.array(dk).reshape(-1, 12, 1)
             labels = self.cia.fit_kshape(arr)
             db['label'] = labels
@@ -59,7 +61,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
 
         income = pd.Series()
         range = pd.Series()
-        for i,row in dz.iterrows():
+        for i, row in dz.iterrows():
             fname = f'{self.stockIndiPath}{row.ts_code}.csv'
             if not os.path.exists(fname):
                 income.loc[len(income)] = math.nan
@@ -67,21 +69,24 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             else:
                 cond = f'trade_date >= {row.trade_date}'
                 subdb = pd.read_csv(fname).query(cond)
-                subdb.sort_values(by='trade_date',inplace=True)
-                range.loc[len(range)] = round( (subdb.iloc[0]['close'] - subdb.iloc[0]['BBI']) / subdb.iloc[0]['BBI'],3)
+                subdb.sort_values(by='trade_date', inplace=True)
+                range.loc[len(range)] = round((subdb.iloc[0]['close'] - subdb.iloc[0]['BBI']) / subdb.iloc[0]['BBI'], 3)
                 if len(subdb) == 1:
                     income.loc[len(income)] = 0
                 else:
-                    income.loc[len(income)] = round((subdb.iloc[len(subdb)-1]['close'] - subdb.iloc[0]['close']) / subdb.iloc[0]['close'],3)
+                    income.loc[len(income)] = round(
+                        (subdb.iloc[len(subdb) - 1]['close'] - subdb.iloc[0]['close']) / subdb.iloc[0]['close'], 3)
         dz['income'] = income.values
         dz['range'] = range.values
-        dz.sort_values(by=['trade_date','income'], ascending=False,inplace=True)
-        print(dz)
+        dz.sort_values(by=['trade_date', 'succeed'], ascending=False, inplace=True)
+        dbret = dz.query('succeed > 0.55')
+        # print(dbret)
+        return dbret
 
     # 查询个股最近一个月双金叉情况，如果双金叉在3个交易日内发生，则返回最近此双金叉前12个交易日的BBI变化数组，包含此双金叉发生的交易日
     def getDoubleGoldBBI(self, db):
         cols = ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 'quaprice', 'quavol',
-                'ts_code', 'trade_date']
+                'ts_code', 'trade_date', 'macd_diff', 'macd_dea', 'macd']
         data = pd.DataFrame(columns=cols)
         for i, row in db.iterrows():
             stock = CMacdBbiCaseStock(row.ts_code)
@@ -89,6 +94,103 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             if sbbi is not None:
                 data.loc[len(data)] = sbbi.values
         return data
+
+    def calPriceQua(self, df, close):
+        quaLev = df['close'].quantile([0.2, 0.4, 0.6, 0.8])
+        idx = 0
+        for it in quaLev:
+            if close < it:
+                return idx
+            idx += 1
+        return idx
+
+    def getPredictCodes(self):
+        db = self.cts.filterStocks('float_mv > 50')
+        cols = ['ts_code', 'trade_date', 'quaprice']
+        dk = pd.DataFrame(columns=cols)
+        for i, row in db.iterrows():
+            fname = f'{self.stockIndiPath}{row.ts_code}.csv'
+            if os.path.exists(fname):
+                dz = pd.read_csv(fname).sort_values('trade_date')
+                it = dz.tail(1)
+                if it.iloc[0].close < it.iloc[0].BBI:
+                    quaPrice = self.calPriceQua(dz, it.iloc[0].close)
+                    dk.loc[len(dk)] = [row.ts_code, it.iloc[0].trade_date, quaPrice]
+        return dk
+
+    def prepareStockDay(self, db):
+        db = db.reindex(
+            columns=db.columns.tolist() + ['close', 'vol','succeed', 'vol0', 'rate0', 'vol1', 'rate1', 'vol2', 'rate2', 'vol3',
+                                           'rate3', 'vol4', 'rate4'])
+        stand = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv')
+        for i, row in db.iterrows():
+            stockfile = f'{self.stockIndiPath}{row.ts_code}.csv'
+            dm = pd.read_csv(stockfile)
+            quaVols = dm['vol'].quantile([0.2, 0.4, 0.6, 0.8])
+            cond = f' quaprice == {row.quaprice} and label == {row.label}'
+            dk = stand.query(cond).sort_values(by='quavol')
+            db.loc[i, 'vol0'] = 0
+            db.loc[i, 'rate0'] = dk.iloc[0].succeed
+            db.loc[i, 'vol1'] = quaVols[0.2]
+            db.loc[i, 'rate1'] = dk.iloc[1].succeed
+            db.loc[i, 'vol2'] = quaVols[0.4]
+            db.loc[i, 'rate2'] = dk.iloc[2].succeed
+            db.loc[i, 'vol3'] = quaVols[0.6]
+            db.loc[i, 'rate3'] = dk.iloc[3].succeed
+            db.loc[i, 'vol4'] = quaVols[0.8]
+            db.loc[i, 'rate4'] = dk.iloc[4].succeed
+            db.loc[i, 'close'] = 0
+            db.loc[i, 'vol'] = 0
+            db.loc[i, 'succeed'] = 0
+            if dk.iloc[0].succeed < 0.5 and \
+                    dk.iloc[1].succeed < 0.5 and \
+                    dk.iloc[2].succeed < 0.5 and \
+                    dk.iloc[3].succeed < 0.5 and \
+                    dk.iloc[4].succeed < 0.5:
+                db.loc[i, 'flag'] = False
+        print(db.query('flag == True'))
+        savefile = f'{self.stockPredictPath}{self.cts.getLastTradeDate()}.csv'
+        db.to_csv(savefile, index=False)
+
+    # 一定要做日终，得到指标数据，才能做目标数据预测
+    def getpredictStockDay(self):
+        log('开始获取目标预测数据')
+        dk = self.getPredictCodes()
+        flags = pd.Series()
+        precloses = pd.Series()
+        labels = pd.Series()
+        cia = CIndicatorAI()
+        log(f'目标预测数据数量：{dk.shape[0]}')
+        count = 0
+        for i, row in dk.iterrows():
+            # tradeDate = self.cts.getPreTradeDate(row.trade_date)
+            tradeDate = row.trade_date
+            stock = CMacdBbiCaseStock(row.ts_code)
+            db, quaClose, quaVols, preclose = stock.predictStockDay(tradeDate)
+            dd = db.tail(12)
+            diff = pd.Series(dd['BBI'])
+            arr = np.array(diff.values).reshape(-1, 12, 1)
+            retlabels = cia.fit_kshape(arr)
+            if retlabels[0] == 6:
+                ret = stock.filterBBIRange_6(tradeDate)
+            elif retlabels[0] == 4 or 8 or 9:
+                ret = stock.filterBBIRange_1(tradeDate)
+            else:
+                ret = stock.filterBBIRange_0(tradeDate)
+            flags.loc[len(flags)] = ret
+            labels.loc[len(labels)] = retlabels[0]
+            precloses.loc[len(precloses)] = preclose
+            count += 1
+            if count % 10 == 0:
+                log(f'处理目标预测数据，总数：{dk.shape[0]},已处理{count}')
+
+        dk['label'] = labels.values
+        dk['flag'] = flags.values
+        dk['preclose'] = precloses.values
+        dk = dk.query('flag == True')
+        dk.sort_values(by='flag', inplace=True)
+        log(f'开始准备目标预测数据')
+        self.prepareStockDay(dk)
 
     def checkBBIGold(self, df):
         return
@@ -99,26 +201,11 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
     def buyCondition(self, df):
         return
 
-    # 过滤股票
-    def filterStocks(self):
-        """ 查询主板和中小板 """
-        df = self.cts.queryStockbaseBoardCust(Constants.MAIN_CONDITION_STR)
-        da = self.cts.queryBakBasic("industry != '银行'")
-        dk = pd.merge(df, da, left_on='ts_code', right_on='ts_code', how='inner')
-        columns = ['ts_code', 'float_mv', 'total_mv', 'name_x',
-                   'industry_x']
-        dtmp = dk[columns].copy()
-        dtmp = dtmp.query('float_mv > 50').sort_values(by='industry_x')
-        Bool = dtmp.name_x.str.contains("ST")  # 去除ST
-        dtmp = dtmp[~Bool]
-        return dtmp
-
     # 生成macdbbi指标模型
     def genMacdBBIModel(self):
         db = None
         idx = 0
-        print(len(self.cts.filterStocks()))
-        for i, row in self.cts.filterStocks().iterrows():
+        for i, row in self.cts.filterStocks('float_mv > 50').iterrows():
             stock = CMacdBbiCaseStock(row.ts_code)
             dk = stock.simpleIndicatorModel()
             if dk is None or dk.shape[0] == 0:
