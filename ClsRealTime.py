@@ -79,9 +79,6 @@ class ClsRealTime:
         return ret
 
     def GetRealPrices2(self,codes):
-        # if (not self.BeInTradeTime()):
-        #     return None
-
         src = codes.split(',')
         sp = self.url
         t = ''

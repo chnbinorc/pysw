@@ -1,13 +1,14 @@
 # -*- coding: UTF-8 -*-
 import datetime
 import math
+import time
 
 import CConfigs as configs
 import CStrategy
 import CTushare
 import CTushare as cts
 import CTools as tools
-
+import easyocr
 from CTools import CTools
 
 import datesum as datesum
@@ -31,29 +32,43 @@ if __name__ == '__main__':
     # strate.draw('000981.SZ',df,'000981.SZ')
     # strate.drawMpf(df)
 
+    # while True:
+    #     cmd = input('请输入指令：')
+    #     if cmd == 'exit':
+    #         break
+    #     else:
+    #         print(cmd)
+    #     time.sleep(10)
+
     # cts.qryPoints()
     # md.doWork()
 
     # md.doBakDataBat(20241125,20241227)
 
     # 日终任务
-    # md.dayWork()
+    md.dayWork()
+    # md.marketrun()
+    # md.updateStockMoneyFlow()
 
+     # 生成BBImacd指标模型
 
-    # 生成BBImacd指标模型
     # md.genMacdBbiModel()
 
     # 生成预处理数据
     # md.genPreData()
-    # md.analyDay()
+    # md.genTargetPredictStockDay()
+
+    # print(md.analyDay())
+
     # md.test_stat2()
     # md.test_draw_std()
-    md.genTargetPredictStockDay()
 
+    # retdb = md.getRealPrice()  # .query('level > 0').sort_values(by='level')
+    # retdb.to_csv('d:/temp/fake_min_data_2.csv', index=False)
+    # print(retdb.query('level > 0').sort_values(by='level'))
 
     # dk = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv').query('succeed > 0.5 and succeed <= 0.6').sort_values(by=['label','quaprice','quavol'])
     # print(dk)
-
 
     # db = pd.read_csv('d:/temp/bbidata.csv').query('quaprice == 0 and quavol == 3 and label == 6')
     # # print(db)
@@ -73,7 +88,6 @@ if __name__ == '__main__':
     # db.sort_values(by='succeed',ascending=False,inplace=True)
     # print(db)
 
-
     # stock = CMacdBbiCaseStock('000002.SZ')
     # stock.test()
     # macd = macd.CMacdBbiCase()
@@ -81,8 +95,6 @@ if __name__ == '__main__':
     # df = pd.read_csv('d:/temp/macdbbi.csv').query('trade_date >= 20241128')
     #
     # print(df)
-
-
 
     '''  
     日支出

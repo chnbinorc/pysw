@@ -32,8 +32,8 @@ class CTushare:
     pro = None
 
     def __init__(self):
+        Configs = CConfigs.CConfigs()
         if not bool(CTushare.tsToken):
-            Configs = CConfigs.CConfigs()
             ts.set_token(Configs.getTushareToken())
             CTushare.pro = ts.pro_api()
             CConfigs.dataPath = Configs.getLocalDataPath()
@@ -43,8 +43,14 @@ class CTushare:
         self.allStockFile = '%s/allstock.csv' % CConfigs.dataPath  # 股票信息
         self.stockBaseFile = '%s/stockbase.csv' % CConfigs.dataPath  # 股票基本信息
         self.stockCompanyFile = '%s/stockcompany.csv' % CConfigs.dataPath
-        self.stockPriceDayPath = '{0}/day/'.format(CConfigs.dataPath)  # 日线行情数据
-        self.stockBakDayPath = '{0}/bak/'.format(CConfigs.dataPath)  # 备用行情数据路径
+        daypath = Configs.getDataConfig('local', 'daypath')
+        bakpath = Configs.getDataConfig('local', 'bakpath')
+        self.stockPriceDayPath = '{0}/{1}/'.format(CConfigs.dataPath, daypath)  # 日线行情数据
+        self.stockBakDayPath = '{0}/{1}/'.format(CConfigs.dataPath, bakpath)  # 备用行情数据路径
+        moneyflow = Configs.getDataConfig('local', 'moneyflow')
+        self.moneyFlowPath = f'{CConfigs.dataPath}/{moneyflow}/'
+        if not os.path.exists(self.moneyFlowPath):
+            os.mkdir(self.moneyFlowPath)
 
     # region ======================   基本接口    ======================
 
@@ -189,20 +195,20 @@ class CTushare:
             s = s - datetime.timedelta(days=1)
         return s.strftime('%Y%m%d')
 
-    def getPreTradeDate(self,date=None):
+    def getPreTradeDate(self, date=None):
         if date is None:
             tdate = datetime.datetime.now()
         else:
-            tdate = datetime.datetime.strptime(str(date),'%Y%m%d')
+            tdate = datetime.datetime.strptime(str(date), '%Y%m%d')
 
         s = tdate - datetime.timedelta(days=1)
         while not self.isTradeDate(s.strftime('%Y%m%d')):
             s = s - datetime.timedelta(days=1)
         return s.strftime('%Y%m%d')
 
-    def getNextTradeDate(self,date):
-        s = datetime.datetime.strptime(str(date),'%Y%m%d')
-        for i in range(1,20):
+    def getNextTradeDate(self, date):
+        s = datetime.datetime.strptime(str(date), '%Y%m%d')
+        for i in range(1, 20):
             nextdate = s + datetime.timedelta(days=i)
             if self.isTradeDate(nextdate.strftime('%Y%m%d')):
                 return nextdate.strftime('%Y%m%d')
@@ -266,7 +272,7 @@ class CTushare:
         return df.query(condition)
 
     # 过滤股票
-    def filterStocks(self,condition='float_mv > 0'):
+    def filterStocks(self, condition='float_mv > 0'):
         """ 查询主板和中小板 """
         df = self.queryStockbaseBoardCust(Constants.MAIN_CONDITION_STR)
         da = self.queryBakBasic("industry != '银行'")
@@ -372,7 +378,6 @@ class CTushare:
         s = now.strftime('%Y%m%d')
 
         while int(date) <= int(end):
-            print(date)
             filepath = self.stockBakDayPath + str(date) + '.csv'
             flag = False
             if (not os.path.exists(filepath)) | update:
@@ -393,6 +398,124 @@ class CTushare:
                         df.to_csv(filepath, index=False, encoding="utf_8_sig")
                     time.sleep(20)
             date = CTools.getDateDelta(date, 1)
+
+    # 更新个股资金流向,小单：5万以下 中单：5万～20万 大单：20万～100万 特大单：成交额>=100万
+    def updateStockMoneyFlow(self, tscode, start, end, update=False):
+        fname = f'{self.moneyFlowPath}{tscode}.csv'
+        if not os.path.exists(fname) or update:
+            df = CTushare.pro.moneyflow(ts_code=tscode, start_date=start, end_date=end, fields='ts_code,trade_date,'
+                                                                                               'buy_sm_vol,'
+                                                                                               'buy_sm_amount, '
+                                                                                               'sell_sm_vol,'
+                                                                                               'sell_sm_amount, '
+                                                                                               'buy_md_vol,'
+                                                                                               'buy_md_amount, '
+                                                                                               'sell_md_vol,'
+                                                                                               'sell_md_amount, '
+                                                                                               'buy_lg_vol,'
+                                                                                               'buy_lg_amount, '
+                                                                                               'sell_lg_vol,'
+                                                                                               'sell_lg_amount, '
+                                                                                               'buy_elg_vol,'
+                                                                                               'buy_elg_amount, '
+                                                                                               'sell_elg_vol,'
+                                                                                               'sell_elg_amount, '
+                                                                                               'net_mf_vol,'
+                                                                                               'net_mf_amount '
+                                        )
+        else:
+            df = pd.read_csv(fname, dtype={'trade_date': str})
+            date = df['trade_date'].max()
+            now = datetime.datetime.now().strftime('%Y%m%d')
+            n = CTools.dateDiff(now, date)
+            if n > 0:
+                start = CTools.getDateDelta(now, -n + 1)
+                dk = CTushare.pro.moneyflow(ts_code=tscode, start_date=start, end_date=now, fields='ts_code,trade_date,'
+                                                                                                   'buy_sm_vol,'
+                                                                                                   'buy_sm_amount, '
+                                                                                                   'sell_sm_vol,'
+                                                                                                   'sell_sm_amount, '
+                                                                                                   'buy_md_vol,'
+                                                                                                   'buy_md_amount, '
+                                                                                                   'sell_md_vol,'
+                                                                                                   'sell_md_amount, '
+                                                                                                   'buy_lg_vol,'
+                                                                                                   'buy_lg_amount, '
+                                                                                                   'sell_lg_vol,'
+                                                                                                   'sell_lg_amount, '
+                                                                                                   'buy_elg_vol,'
+                                                                                                   'buy_elg_amount, '
+                                                                                                   'sell_elg_vol,'
+                                                                                                   'sell_elg_amount, '
+                                                                                                   'net_mf_vol,'
+                                                                                                   'net_mf_amount '
+                                            )
+                if not dk is None and dk.shape[0] > 0:
+                    df = df.append(dk, ignore_index=True)
+        df.sort_values(by='trade_date', ascending=True, inplace=True)
+        df.to_csv(fname, index=False)
+
+    def updateStockMoneyFlow2(self, date=None):
+        if date is None:
+            s = self.getLastTradeDate()
+        else:
+            s = date
+        fname = f'{self.moneyFlowPath}{s}.csv'
+        df = CTushare.pro.moneyflow(start_date=s, end_date=s, fields='ts_code,trade_date,'
+                                                                                           'buy_sm_vol,'
+                                                                                           'buy_sm_amount, '
+                                                                                           'sell_sm_vol,'
+                                                                                           'sell_sm_amount, '
+                                                                                           'buy_md_vol,'
+                                                                                           'buy_md_amount, '
+                                                                                           'sell_md_vol,'
+                                                                                           'sell_md_amount, '
+                                                                                           'buy_lg_vol,'
+                                                                                           'buy_lg_amount, '
+                                                                                           'sell_lg_vol,'
+                                                                                           'sell_lg_amount, '
+                                                                                           'buy_elg_vol,'
+                                                                                           'buy_elg_amount, '
+                                                                                           'sell_elg_vol,'
+                                                                                           'sell_elg_amount, '
+                                                                                           'net_mf_vol,'
+                                                                                           'net_mf_amount '
+                                        )
+
+        df.sort_values(by='trade_date', ascending=True, inplace=True)
+        df.to_csv(fname, index=False)
+
+    # 大盘资金流向 , 北向资金不再披露了，没用了
+    def updateMoneyFlowHSGT(self, start, end, update=False):
+        fname = f'{self.moneyFlowPath}hsgt.csv'
+        if not os.path.exists(fname) or update:
+            df = CTushare.pro.moneyflow_hsgt(start_date=start, end_date=end, fields='trade_date,'
+                                                                               'ggt_ss,'
+                                                                               'ggt_sz, '
+                                                                               'hgt,'
+                                                                               'sgt, '
+                                                                               'north_money,'
+                                                                               'south_money, '
+                                        )
+        else:
+            df = pd.read_csv(fname, dtype={'trade_date': str})
+            date = df['trade_date'].max()
+            now = datetime.datetime.now().strftime('%Y%m%d')
+            n = CTools.dateDiff(now, date)
+            if n > 0:
+                start = CTools.getDateDelta(now, -n + 1)
+                dk = CTushare.pro.moneyflow_hsgt(start_date=start, end_date=now, fields='trade_date,'
+                                                                                   'ggt_ss,'
+                                                                                   'ggt_sz, '
+                                                                                   'hgt,'
+                                                                                   'sgt, '
+                                                                                   'north_money,'
+                                                                                   'south_money, '
+                                            )
+                if not dk is None and dk.shape[0] > 0:
+                    df = df.append(dk, ignore_index=True)
+        df.sort_values(by='trade_date', ascending=True, inplace=True)
+        df.to_csv(fname, index=False)
 
     # endregion
 

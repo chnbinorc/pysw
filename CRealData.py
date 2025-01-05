@@ -14,6 +14,7 @@ class CRealData:
         if not os.path.exists(mPath):
             os.mkdir(mPath)
         self.minutePath = mPath + '/' + self.configs.getDataConfig('local', 'minutepath') + '/'
+
         if not os.path.exists(self.minutePath):
             os.mkdir(self.minutePath)
 

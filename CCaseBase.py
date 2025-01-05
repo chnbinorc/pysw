@@ -16,14 +16,18 @@ class CCaseBase:
         indicatorspath = configs.getDataConfig('local', 'indicatorspath')
         minutepath = configs.getDataConfig('local', 'minutepath')
         predictpath = configs.getDataConfig('local','predict')
+        temppath = configs.getDataConfig('local','temp')
 
         self.stockPriceDayPath = '{0}/{1}/'.format(path, daypath)  # 日线行情数据
         self.stockBakDayPath = '{0}/{1}/'.format(path, bakpath)  # 备用行情数据路径
         self.stockIndiPath = '{0}/{1}/'.format(path, indicatorspath)  # 日线指标分析数据路径
         self.stockPriceMinPath = '{0}/{1}/'.format(path, minutepath)  # 日线分钟行情数据路径
         self.stockPredictPath = f'{path}/{predictpath}/'  # 预测数据路径
+        self.stockTempPath = f'{path}/{temppath}/'  # 临时目录
         if not os.path.exists(self.stockPredictPath):
             os.mkdir(self.stockPredictPath)
+        if not os.path.exists(self.stockTempPath):
+            os.mkdir(self.stockTempPath)
         return
 
     # 准备数据

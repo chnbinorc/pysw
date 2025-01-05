@@ -31,8 +31,8 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
     def genPredictData(self):
         # 获取满足双金叉数据
         now = self.cts.getLastTradeDate()
-        filename = f'd:/temp/predictdata_{now}.csv'
-        df = self.cts.filterStocks('float_mv > 50')
+        filename = f'{self.stockTempPath}predictdata_{now}.csv'
+        df = self.cts.filterStocks()
         db = self.getDoubleGoldBBI(df)
         if db is not None and db.shape[0] > 0:
             dk = db.copy()
@@ -40,24 +40,21 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             arr = np.array(dk).reshape(-1, 12, 1)
             labels = self.cia.fit_kshape(arr)
             db['label'] = labels
-            # db.to_csv('d:/temp/predictdata.csv',index=False)
             db.to_csv(filename, index=False)
 
     def analy(self):
         now = self.cts.getLastTradeDate()
-        filename = f'd:/temp/predictdata_{now}.csv'
+        filename = f'{self.stockTempPath}predictdata_{now}.csv'
         if not os.path.exists(filename):
             now = self.cts.getPreTradeDate()
-            filename = f'd:/temp/predictdata_{now}.csv'
+            filename = f'{self.stockTempPath}predictdata_{now}.csv'
             if not os.path.exists(filename):
                 print(f'文件不存在，请生成预处理文件:{filename}')
                 return
         db = pd.read_csv(filename)
-        # db = pd.read_csv('d:/temp/predictdata.csv')
-        dk = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv')
+        dk = pd.read_csv(f'{self.stockTempPath}bbidata_kshape_day_10_std.csv')
         dd = pd.merge(db, dk, on=['quaprice', 'quavol', 'label'], how='left')
         dz = dd[['quaprice', 'quavol', 'label', 'ts_code', 'trade_date', 'succeed', 'simples']].copy()
-        # dz.sort_values(by='succeed', ascending=False, inplace=True)
 
         income = pd.Series()
         range = pd.Series()
@@ -105,7 +102,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         return idx
 
     def getPredictCodes(self):
-        db = self.cts.filterStocks('float_mv > 50')
+        db = self.cts.filterStocks()
         cols = ['ts_code', 'trade_date', 'quaprice']
         dk = pd.DataFrame(columns=cols)
         for i, row in db.iterrows():
@@ -122,7 +119,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         db = db.reindex(
             columns=db.columns.tolist() + ['close', 'vol','succeed', 'vol0', 'rate0', 'vol1', 'rate1', 'vol2', 'rate2', 'vol3',
                                            'rate3', 'vol4', 'rate4'])
-        stand = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv')
+        stand = pd.read_csv(f'{self.stockTempPath}bbidata_kshape_day_10_std.csv')
         for i, row in db.iterrows():
             stockfile = f'{self.stockIndiPath}{row.ts_code}.csv'
             dm = pd.read_csv(stockfile)
@@ -148,9 +145,16 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
                     dk.iloc[3].succeed < 0.5 and \
                     dk.iloc[4].succeed < 0.5:
                 db.loc[i, 'flag'] = False
-        print(db.query('flag == True'))
         savefile = f'{self.stockPredictPath}{self.cts.getLastTradeDate()}.csv'
         db.to_csv(savefile, index=False)
+
+    def getPredictData(self,date = datetime.datetime.now().strftime('%Y%m%d')):
+        fname = f'{self.stockPredictPath}{date}.csv'
+        if os.path.exists(fname):
+            return pd.read_csv(fname)
+        else:
+            error(f'文件不存在:{fname}')
+        return None
 
     # 一定要做日终，得到指标数据，才能做目标数据预测
     def getpredictStockDay(self):
@@ -205,7 +209,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
     def genMacdBBIModel(self):
         db = None
         idx = 0
-        for i, row in self.cts.filterStocks('float_mv > 50').iterrows():
+        for i, row in self.cts.filterStocks().iterrows():
             stock = CMacdBbiCaseStock(row.ts_code)
             dk = stock.simpleIndicatorModel()
             if dk is None or dk.shape[0] == 0:
@@ -218,11 +222,11 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             if idx % 100 == 0:
                 print(idx)
         if db is not None:
-            db.to_csv('d:/temp/bbidata.csv', index=False, encoding="utf_8_sig")
+            db.to_csv(f'{self.stockTempPath}bbidata.csv', index=False, encoding="utf_8_sig")
 
     # 样本检测
     def testSimple(self):
-        df = pd.read_csv('d:/temp/bbidata.csv')
+        df = pd.read_csv(f'{self.stockTempPath}bbidata.csv')
         # dk = df.query('quaprice < 6 and quavol > 8').copy()
         # # dk.drop(columns=['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11'], inplace=True)
         # # print(dk)

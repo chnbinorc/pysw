@@ -21,6 +21,7 @@ from tslearn.datasets import CachedDatasets
 from tslearn.preprocessing import TimeSeriesScalerMeanVariance
 import sys
 from CCommon import log, warning, error
+import CConfigs
 
 warnings.filterwarnings('ignore')
 
@@ -35,11 +36,19 @@ np.set_printoptions(threshold=np.inf)
 class CIndicatorAI:
     def __init__(self):
         self.kshape_model = None
+        configs = CConfigs.CConfigs()
+        path = configs.getLocalDataPath()
+
+        temppath = configs.getDataConfig('local', 'temp')
+
+        self.stockTempPath = f'{path}/{temppath}/'  # 临时目录
+        if not os.path.exists(self.stockTempPath):
+            os.mkdir(self.stockTempPath)
         return
 
     def fit_kshape(self,data):
         if self.kshape_model is None:
-            filename = 'd:/temp/kshape_day_10.pkl'
+            filename = f'{self.stockTempPath}kshape_day_10.pkl'
             if not os.path.exists(filename):
                 log('kshape_day_10.pkl 文件不存在')
                 return None
@@ -52,7 +61,7 @@ class CIndicatorAI:
     def test_kshape(self, draw=False):
         seed = 0
         numpy.random.seed(seed)
-        df = pd.read_csv('D:/temp/bbidata.csv').copy()
+        df = pd.read_csv(f'{self.stockTempPath}bbidata.csv').copy()
         if 'label' in df.columns:
             df = df.drop(columns=['quaprice', 'quavol', 'days', 'income', 'ts_code', 'trade_date','macd_diff','macd_dea','macd', 'label'])
         else:
@@ -65,7 +74,7 @@ class CIndicatorAI:
         sz = data.shape[1]
 
         n_clusters = 10
-        filename = 'd:/temp/kshape_day_10.pkl'
+        filename = f'{self.stockTempPath}kshape_day_10.pkl'
 
         if os.path.exists(filename):
             kshape_model = KShape.from_pickle(filename)
@@ -74,9 +83,9 @@ class CIndicatorAI:
             kshape_model = KShape(n_clusters=n_clusters, verbose=False, random_state=42)
             labels = kshape_model.fit_predict(data_scaled)
             kshape_model.to_pickle(filename)
-        dbsource = pd.read_csv('D:/temp/bbidata.csv')
+        dbsource = pd.read_csv(f'{self.stockTempPath}bbidata.csv')
         dbsource['label'] = labels
-        dbsource.to_csv('D:/temp/bbidata.csv', index=False)
+        dbsource.to_csv(f'{self.stockTempPath}bbidata.csv', index=False)
 
         if draw:
             plt.figure()
@@ -88,12 +97,12 @@ class CIndicatorAI:
                 plt.xlim(-1, sz)
                 plt.ylim(-2, 2)
                 plt.tight_layout()
-                filename = f'd:/temp/bbidata_{yi}.png'
+                filename = f'{self.stockTempPath}bbidata_{yi}.png'
                 plt.savefig(filename, bbox_inches='tight')
                 plt.cla()
 
     def test_make_kshape_day_10(self):
-        db = pd.read_csv('d:/temp/bbidata.csv')
+        db = pd.read_csv(f'{self.stockTempPath}bbidata.csv')
         cols = ['quaprice', 'quavol', 'label', 'succeed', 'fail', 'simples']
         dbStd = pd.DataFrame(columns=cols)
         for i in range(5):
@@ -113,12 +122,12 @@ class CIndicatorAI:
                         # print(
                         #     f'条件：价格区间：{i} 成交量区间:{j} 标签区间:{k}  总数： {len(dk)} , 成功：{round(len(d1) / len(dk), 3)}, 失败：{round(len(d2) / len(dk), 3)}')
                 print('==========================================================')
-        dbStd.to_csv('d:/temp/bbidata_kshape_day_10_std.csv', index=False)
+        dbStd.to_csv(f'{self.stockTempPath}bbidata_kshape_day_10_std.csv', index=False)
         print(dbStd.query('succeed > 0.6'))
         print(dbStd)
 
     def test_draw_std(self):
-        df = pd.read_csv('D:/temp/bbidata.csv').query('quaprice == 0 and quavol == 3 and label == 3')
+        df = pd.read_csv(f'{self.stockTempPath}bbidata.csv').query('quaprice == 0 and quavol == 3 and label == 3')
         dk = df.query('income > 0.1').copy()
         dk.drop(columns=['quaprice', 'quavol', 'days', 'income', 'ts_code', 'trade_date', 'label'],inplace=True)
         data = np.array(dk).reshape(-1, 12, 1)
@@ -132,7 +141,7 @@ class CIndicatorAI:
         data2 = np.array(dz).reshape(-1, 12, 1)
         data_scaled2 = scaler.fit_transform(data2)
 
-        filename = 'd:/temp/kshape_day_10.pkl'
+        filename = f'{self.stockTempPath}kshape_day_10.pkl'
         kshape_model = KShape.from_pickle(filename)
 
         plt.figure()
@@ -147,7 +156,7 @@ class CIndicatorAI:
         plt.xlim(-1, 12)
         plt.ylim(-2, 2)
         plt.tight_layout()
-        filename = f'd:/temp/test_{3}.png'
+        filename = f'{self.stockTempPath}test_{3}.png'
         # plt.savefig(filename, bbox_inches='tight')
         # plt.cla()
         plt.show()

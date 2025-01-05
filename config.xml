@@ -4,11 +4,11 @@
 	<DataConfigs>
 		<Config Name="tushare" token="39956a10efc09429356600eae9bf58a7519347b12364afe2b74a1873"/>
 		<!-- 目录 -->
-		<Config Name="local" path="data" daypath = "day" bakpath = "bak" indicatorspath = "indicators" minutepath = "minute" predict = "predict" />
+		<Config Name="local" path="data" daypath = "day" bakpath = "bak" indicatorspath = "indicators" minutepath = "minute" predict = "predict" moneyflow = "moneyflow" temp="temp"/>
 	</DataConfigs>
 	<!-- 模块配置 -->
 	<ModeulConfigs>
-		<Config Name="trade" ambegin="09:30:00" amend="11:30:00" pmbegin="13:00:00" pmend="15:00:00" daybegin="17:00:00" dayend="23:00:00" />
-		<Config Name="daywork" path="data" />
+		<Config Name="stockmarket" amprepare = "09:29:00" pmprepare = "12:59:00" ambegin="09:30:00" amend="11:30:00" pmbegin="13:00:00" pmend="15:00:00" />
+		<Config Name="daywork" begin="17:00:00" end="23:00:00" />
 	</ModeulConfigs>
 </Root>
