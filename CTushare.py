@@ -10,7 +10,7 @@ import CConfigs as Configs
 import Constants
 import Constants as Constatans
 from CTools import CTools
-from CCommon import log
+from CCommon import log,warning,error
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -40,17 +40,38 @@ class CTushare:
             if not os.path.exists(CConfigs.dataPath):
                 os.mkdir(CConfigs.dataPath)
             CTushare.tsToken = Configs.getTushareToken()
-        self.allStockFile = '%s/allstock.csv' % CConfigs.dataPath  # 股票信息
-        self.stockBaseFile = '%s/stockbase.csv' % CConfigs.dataPath  # 股票基本信息
+        self.allStockFile = '%s/allstock.csv' % CConfigs.dataPath                   # 股票信息
+        self.stockBaseFile = '%s/stockbase.csv' % CConfigs.dataPath                 # 股票基本信息
         self.stockCompanyFile = '%s/stockcompany.csv' % CConfigs.dataPath
         daypath = Configs.getDataConfig('local', 'daypath')
         bakpath = Configs.getDataConfig('local', 'bakpath')
-        self.stockPriceDayPath = '{0}/{1}/'.format(CConfigs.dataPath, daypath)  # 日线行情数据
-        self.stockBakDayPath = '{0}/{1}/'.format(CConfigs.dataPath, bakpath)  # 备用行情数据路径
-        moneyflow = Configs.getDataConfig('local', 'moneyflow')
+        self.stockPriceDayPath = '{0}/{1}/'.format(CConfigs.dataPath, daypath)      # 日线行情数据
+        self.stockBakDayPath = '{0}/{1}/'.format(CConfigs.dataPath, bakpath)        # 备用行情数据路径
+
+        moneyflow = Configs.getDataConfig('local', 'moneyflow')                     # 个股资金流向
+        moneyflow_ths = Configs.getDataConfig('local', 'moneyflow_ths')             # 个股资金流向_同花顺
+        moneyflow_ind_ths = Configs.getDataConfig('local', 'moneyflow_ind_ths')     # 板块资金流向_同花顺
+        moneyflow_mkt_dc = Configs.getDataConfig('local', 'moneyflow_mkt_dc')       # 大盘资金流向_东方财富
+
+        ths_index = Configs.getDataConfig('local', 'ths_index')  # 同花顺概念和行业指数
+        ths_member = Configs.getDataConfig('local', 'ths_member')  # 同花顺概念板块成分
+
+        self.ths_index_file = f'{CConfigs.dataPath}/{ths_index}.csv'
+        self.ths_member = f'{CConfigs.dataPath}/{ths_member}/'
+        if not os.path.exists(self.ths_member):
+            os.mkdir(self.ths_member)
+        self.moneyflow_mkt_dc_file = f'{CConfigs.dataPath}/{moneyflow_mkt_dc}.csv'
+
         self.moneyFlowPath = f'{CConfigs.dataPath}/{moneyflow}/'
+        self.moneyFlowPath_ths = f'{CConfigs.dataPath}/{moneyflow_ths}/'
+        self.moneyFlowPath_ind_ths = f'{CConfigs.dataPath}/{moneyflow_ind_ths}/'
+
         if not os.path.exists(self.moneyFlowPath):
             os.mkdir(self.moneyFlowPath)
+        if not os.path.exists(self.moneyFlowPath_ths):
+            os.mkdir(self.moneyFlowPath_ths)
+        if not os.path.exists(self.moneyFlowPath_ind_ths):
+            os.mkdir(self.moneyFlowPath_ind_ths)
 
     # region ======================   基本接口    ======================
 
@@ -367,8 +388,8 @@ class CTushare:
         rows.to_csv(filepath, index=False)
 
     '''
-        有限制，每分钟5次
-        '''
+    有限制，每分钟5次
+    '''
 
     def BakDaily(self, start, end, update=False):
         date = start
@@ -399,7 +420,8 @@ class CTushare:
                     time.sleep(20)
             date = CTools.getDateDelta(date, 1)
 
-    # 更新个股资金流向,小单：5万以下 中单：5万～20万 大单：20万～100万 特大单：成交额>=100万
+
+    # 5000积分的做法 更新个股资金流向,小单：5万以下 中单：5万～20万 大单：20万～100万 特大单：成交额>=100万
     def updateStockMoneyFlow(self, tscode, start, end, update=False):
         fname = f'{self.moneyFlowPath}{tscode}.csv'
         if not os.path.exists(fname) or update:
@@ -450,11 +472,12 @@ class CTushare:
                                                                                                    'net_mf_vol,'
                                                                                                    'net_mf_amount '
                                             )
-                if not dk is None and dk.shape[0] > 0:
+                if dk is not None and dk.shape[0] > 0:
                     df = df.append(dk, ignore_index=True)
         df.sort_values(by='trade_date', ascending=True, inplace=True)
         df.to_csv(fname, index=False)
 
+    # 2000积分的做法
     def updateStockMoneyFlow2(self, date=None):
         if date is None:
             s = self.getLastTradeDate()
@@ -462,25 +485,25 @@ class CTushare:
             s = date
         fname = f'{self.moneyFlowPath}{s}.csv'
         df = CTushare.pro.moneyflow(start_date=s, end_date=s, fields='ts_code,trade_date,'
-                                                                                           'buy_sm_vol,'
-                                                                                           'buy_sm_amount, '
-                                                                                           'sell_sm_vol,'
-                                                                                           'sell_sm_amount, '
-                                                                                           'buy_md_vol,'
-                                                                                           'buy_md_amount, '
-                                                                                           'sell_md_vol,'
-                                                                                           'sell_md_amount, '
-                                                                                           'buy_lg_vol,'
-                                                                                           'buy_lg_amount, '
-                                                                                           'sell_lg_vol,'
-                                                                                           'sell_lg_amount, '
-                                                                                           'buy_elg_vol,'
-                                                                                           'buy_elg_amount, '
-                                                                                           'sell_elg_vol,'
-                                                                                           'sell_elg_amount, '
-                                                                                           'net_mf_vol,'
-                                                                                           'net_mf_amount '
-                                        )
+                                                                     'buy_sm_vol,'
+                                                                     'buy_sm_amount, '
+                                                                     'sell_sm_vol,'
+                                                                     'sell_sm_amount, '
+                                                                     'buy_md_vol,'
+                                                                     'buy_md_amount, '
+                                                                     'sell_md_vol,'
+                                                                     'sell_md_amount, '
+                                                                     'buy_lg_vol,'
+                                                                     'buy_lg_amount, '
+                                                                     'sell_lg_vol,'
+                                                                     'sell_lg_amount, '
+                                                                     'buy_elg_vol,'
+                                                                     'buy_elg_amount, '
+                                                                     'sell_elg_vol,'
+                                                                     'sell_elg_amount, '
+                                                                     'net_mf_vol,'
+                                                                     'net_mf_amount '
+                                    )
 
         df.sort_values(by='trade_date', ascending=True, inplace=True)
         df.to_csv(fname, index=False)
@@ -490,13 +513,13 @@ class CTushare:
         fname = f'{self.moneyFlowPath}hsgt.csv'
         if not os.path.exists(fname) or update:
             df = CTushare.pro.moneyflow_hsgt(start_date=start, end_date=end, fields='trade_date,'
-                                                                               'ggt_ss,'
-                                                                               'ggt_sz, '
-                                                                               'hgt,'
-                                                                               'sgt, '
-                                                                               'north_money,'
-                                                                               'south_money, '
-                                        )
+                                                                                    'ggt_ss,'
+                                                                                    'ggt_sz, '
+                                                                                    'hgt,'
+                                                                                    'sgt, '
+                                                                                    'north_money,'
+                                                                                    'south_money, '
+                                             )
         else:
             df = pd.read_csv(fname, dtype={'trade_date': str})
             date = df['trade_date'].max()
@@ -505,17 +528,116 @@ class CTushare:
             if n > 0:
                 start = CTools.getDateDelta(now, -n + 1)
                 dk = CTushare.pro.moneyflow_hsgt(start_date=start, end_date=now, fields='trade_date,'
-                                                                                   'ggt_ss,'
-                                                                                   'ggt_sz, '
-                                                                                   'hgt,'
-                                                                                   'sgt, '
-                                                                                   'north_money,'
-                                                                                   'south_money, '
-                                            )
-                if not dk is None and dk.shape[0] > 0:
+                                                                                        'ggt_ss,'
+                                                                                        'ggt_sz, '
+                                                                                        'hgt,'
+                                                                                        'sgt, '
+                                                                                        'north_money,'
+                                                                                        'south_money, '
+                                                 )
+                if dk is not None and dk.shape[0] > 0:
                     df = df.append(dk, ignore_index=True)
         df.sort_values(by='trade_date', ascending=True, inplace=True)
         df.to_csv(fname, index=False)
+
+    # 5000积分 更新个股资金流向, 同花顺
+    def updateStockMoneyFlowTHS(self, tscode, start, end, update=False):
+        fname = f'{self.moneyFlowPath_ths}{tscode}.csv'
+        if not os.path.exists(fname) or update:
+            df = CTushare.pro.moneyflow_ths(ts_code=tscode, start_date=start, end_date=end,
+                                            fields='ts_code,trade_date,'
+                                                   'name,'
+                                                   'pct_change,'
+                                                   'latest,'
+                                                   'net_amount,'
+                                                   'net_d5_amount,'
+                                                   'buy_lg_amount,'
+                                                   'buy_lg_amount_rate,'
+                                                   'buy_md_amount,'
+                                                   'buy_md_amount_rate,'
+                                                   'buy_sm_amount,'
+                                                   'buy_sm_amount_rate,'
+
+                                            )
+        else:
+            df = pd.read_csv(fname, dtype={'trade_date': str})
+            date = df['trade_date'].max()
+            now = datetime.datetime.now().strftime('%Y%m%d')
+            n = CTools.dateDiff(now, date)
+            if n > 0:
+                start = CTools.getDateDelta(now, -n + 1)
+                dk = CTushare.pro.moneyflow_ths(ts_code=tscode, start_date=start, end_date=now,
+                                                fields='ts_code,trade_date,'
+                                                       'name,'
+                                                       'pct_change,'
+                                                       'latest,'
+                                                       'net_amount,'
+                                                       'net_d5_amount,'
+                                                       'buy_lg_amount,'
+                                                       'buy_lg_amount_rate,'
+                                                       'buy_md_amount,'
+                                                       'buy_md_amount_rate,'
+                                                       'buy_sm_amount,'
+                                                       'buy_sm_amount_rate,'
+                                                )
+                if dk is not None and dk.shape[0] > 0:
+                    df = df.append(dk, ignore_index=True)
+        df.sort_values(by='trade_date', ascending=True, inplace=True)
+        df.to_csv(fname, index=False)
+
+    # 5000积分 更新板块资金流向, 同花顺
+    def updateIndMoneyFlowTHS(self, start, end, update=False):
+        next = start
+        while int(next) <= int(end):
+            fname = f'{self.moneyFlowPath_ind_ths}{next}.csv'
+            if os.path.exists(fname):
+                next = self.getNextTradeDate(next)
+                continue
+            df = CTushare.pro.moneyflow_ind_ths(trade_date=next)
+            if df.shape[0]>0:
+                df.to_csv(fname, index=False)
+            next = self.getNextTradeDate(next)
+
+    # 5000积分 更新同花顺板块分类和分类成分股
+    def updateTHSIndex(self):
+        try:
+            df = CTushare.pro.ths_index()
+            df.to_csv(self.ths_index_file, index=False)
+            dd = df.query('exchange == "A" and (type == "N" or type == "R") ')
+            for i, row in dd.iterrows():
+                fname = f'{self.ths_member}{row.ts_code}.csv'
+                # if os.path.exists(fname):
+                #     continue
+                dk = CTushare.pro.ths_member(ts_code=row.ts_code)
+                if dk.shape[0] > 0:
+                    dk.to_csv(fname, index=False)
+        except Exception as err:
+            error(err)
+
+    # 获取同花顺板块信息
+    def getIndexTHS(self,index='N'):
+        if not os.path.exists(self.ths_index_file):
+            self.updateTHSIndex()
+        qstr = f'exchange == "A" and type=="{index}"'
+        return pd.read_csv(self.ths_index_file).query(qstr)
+
+    # 获取大盘资金流向
+    def updateMarketDC(self):
+        now = datetime.datetime.now().strftime('%Y%m%d')
+        df = None
+        if not os.path.exists(self.moneyflow_mkt_dc_file):
+            start = CTools.getDateDelta(now, -Constants.ONE_YEARE_DAYS)
+            df = CTushare.pro.moneyflow_mkt_dc(start_date=start, end_date=now)
+        else:
+            dk = pd.read_csv(self.moneyflow_mkt_dc_file,dtype={'trade_date': str})
+            trade_date = dk['trade_date'].max()
+            start = self.getNextTradeDate(trade_date)
+            if int(start) <= int(now):
+                dz = CTushare.pro.moneyflow_mkt_dc(start_date=start, end_date=now)
+                df = dk.append(dz)
+        if df is not None and df.shape[0] > 0:
+            df.sort_values(by='trade_date',inplace=True)
+            df.to_csv(self.moneyflow_mkt_dc_file,index=False)
 
     # endregion
 

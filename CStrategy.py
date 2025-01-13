@@ -20,7 +20,7 @@ from mplfinance.original_flavor import candlestick_ohlc
 import datetime
 
 import mplfinance as mpf
-import ClsMThreadPool as mttool
+from ClsMThreadPool import ClsMTPool
 
 
 class CStrategy:
@@ -33,7 +33,7 @@ class CStrategy:
         self.stockPriceDayPath = '{0}/day/'.format(CConfigs.dataPath)
         self.stockIndicatorsPath = '{0}/indicators/'.format(CConfigs.dataPath)
         self.fig = None
-        self.mttool = mttool.ClsMTPool(100)
+        self.mttool = ClsMTPool.Create()
         self.titles = 0
         self.completTitles = 0
         self.evtIndicatorsCompletDay = None

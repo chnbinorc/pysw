@@ -41,18 +41,6 @@ class CMethod:
         daywork = CDayWork()
         daywork.run()
 
-    # 更新个股资金流向
-    def updateStockMoneyFlow(self,all=False):
-        market = CStockMarket()
-        now = datetime.datetime.now().strftime('%Y%m%d')
-        if all:
-            next = self.tools.getDateDelta(now,-Constants.ONE_YEARE_DAYS)
-            while int(next) <= int(now):
-                market.updateStockMoneyFlow(next)
-                next = self.cts.getNextTradeDate(next)
-        else:
-            market.updateStockMoneyFlow(now)
-
     # 近3个交易日产生的双金叉个股
     def analyDay(self):
         return self.bbicase.analy()
@@ -119,7 +107,9 @@ class CMethod:
         market.run()
 
     # region 测试代码
-
+    def test_realdata(self):
+        market = CStockMarket()
+        market.realDataTrigger()
     def test_draw_std(self):
         cia = CIndicatorAI()
         cia.test_draw_std()

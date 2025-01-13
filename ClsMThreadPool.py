@@ -33,6 +33,12 @@ class ClsTread(threading.Thread):
 #             self.callback(self.start,self.end,self.condition,self.flag)
 
 class ClsMTPool:
+    mttool = None
+    @staticmethod
+    def Create():
+        if ClsMTPool.mttool is None:
+            ClsMTPool.mttool = ClsMTPool(200)
+        return ClsMTPool.mttool
     def __init__(self, maxsize):
         self.maxsize = maxsize
         self.threadId = -1

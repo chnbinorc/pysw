@@ -9,6 +9,9 @@ import CTushare
 import CTushare as cts
 import CTools as tools
 import easyocr
+
+from CDayWork import CDayWork
+from CStockMarket import CStockMarket
 from CTools import CTools
 
 import datesum as datesum
@@ -46,9 +49,18 @@ if __name__ == '__main__':
     # md.doBakDataBat(20241125,20241227)
 
     # 日终任务
-    md.dayWork()
-    # md.marketrun()
+    # md.dayWork()
+    md.marketrun()
+
+    # cts.updateTHSIndex()
     # md.updateStockMoneyFlow()
+    # md.test_realdata()
+
+    # daywork = CDayWork(None)
+    # daywork.updateIndexMoneyFlow_THS()
+
+    # market = CStockMarket()
+    # market.runStockIndexStat()
 
      # 生成BBImacd指标模型
 

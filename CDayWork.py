@@ -8,15 +8,16 @@ import Constants
 import CStrategy as strate
 from CCommon import log, warning, error
 from CMacdBbiCase import CMacdBbiCase
-from CStockMarket import CStockMarket
+# from CStockMarket import CStockMarket
 
 
 class CDayWork:
-    def __init__(self):
+    def __init__(self,fnend):
         self.cts = cts.CTushare()
         self.strate = strate.CStrategy()
         self.tools = ctools.CTools()
         self.bbicase = CMacdBbiCase()
+        self.endtrigger = fnend
 
     def run(self):
         log('============开始日终处理============')
@@ -103,9 +104,20 @@ class CDayWork:
             self.genPreData()
             log('============生成目标预测数据============')
             self.genTargetPredictStockDay()
+
+            log('============更新同花顺板块信息以及大盘资金流向============')
+            self.updateTHSIndex()
+            self.updateMarketDC()
+
             log('============获取个股资金流向============')
             self.updateStockMoneyFlow()
+            log('============获取个股资金(同花顺)流向============')
+            self.updateStockMoneyFlow_THS()
+            log('============获取板块资金(同花顺)流向============')
+            self.updateIndexMoneyFlow_THS()
             log('============日终处理结束============')
+            if self.endtrigger is not None:
+                self.endtrigger(True)
         else:
             log(f'日终指标数据生成情况：总数{self.strate.titles},完成{self.strate.completTitles}')
 
@@ -119,12 +131,36 @@ class CDayWork:
 
     # 更新个股资金流向
     def updateStockMoneyFlow(self,all=False):
-        market = CStockMarket()
         now = datetime.datetime.now().strftime('%Y%m%d')
         if all:
             next = self.tools.getDateDelta(now,-Constants.ONE_YEARE_DAYS)
             while int(next) <= int(now):
-                market.updateStockMoneyFlow(next)
+                self.cts.updateStockMoneyFlow2(next)
                 next = self.cts.getNextTradeDate(next)
         else:
-            market.updateStockMoneyFlow(now)
+            self.cts.updateStockMoneyFlow2(now)
+
+    # 更新个股资金流向，同花顺
+    def updateStockMoneyFlow_THS(self):
+        now = datetime.datetime.now().strftime('%Y%m%d')
+        start = self.tools.getDateDelta(now, -Constants.ONE_YEARE_DAYS)
+        df = self.cts.filterStocks()
+        log(f'开始更新个股资金流向（同花顺接口） 500次/分钟 ，总数{df.shape[0]}')
+        for i,row in df.iterrows():
+            self.cts.updateStockMoneyFlowTHS(row.ts_code,start,now)
+            time.sleep(0.1)
+
+    # 更新板块资金流向，同花顺
+    def updateIndexMoneyFlow_THS(self):
+        now = datetime.datetime.now().strftime('%Y%m%d')
+        start = self.tools.getDateDelta(now, -Constants.ONE_YEARE_DAYS)
+        log(f'开始更新板块资金流向（同花顺接口')
+        self.cts.updateIndMoneyFlowTHS(start,now)
+
+    # 更新同花顺板块行业以及成分
+    def updateTHSIndex(self):
+        self.cts.updateTHSIndex()
+
+    # 更新大盘资金流向，东财
+    def updateMarketDC(self):
+        self.cts.updateMarketDC()

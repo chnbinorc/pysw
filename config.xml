@@ -4,7 +4,7 @@
 	<DataConfigs>
 		<Config Name="tushare" token="39956a10efc09429356600eae9bf58a7519347b12364afe2b74a1873"/>
 		<!-- 目录 -->
-		<Config Name="local" path="data" daypath = "day" bakpath = "bak" indicatorspath = "indicators" minutepath = "minute" predict = "predict" moneyflow = "moneyflow" temp="temp"/>
+		<Config Name="local" path="data" daypath = "day" bakpath = "bak" indicatorspath = "indicators" minutepath = "minute" predict = "predict" moneyflow = "moneyflow" temp="temp" moneyflow_ths="moneyflow_ths" moneyflow_ind_ths="moneyflow_ind_ths" ths_index="ths_index" ths_member="ths_member" moneyflow_mkt_dc="moneyflow_mkt_dc"/>
 	</DataConfigs>
 	<!-- 模块配置 -->
 	<ModeulConfigs>

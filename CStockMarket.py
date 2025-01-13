@@ -1,6 +1,6 @@
 import math
 import os.path
-
+import sys
 import CMarket
 import requests
 import pandas as pd
@@ -10,8 +10,11 @@ import CStrategy as strate
 import CTools as ctools
 import CTushare as cts
 import Constants
+from CDayWork import CDayWork
 from CMacdBbiCase import CMacdBbiCase
 from CCommon import log, warning, error
+from CRealData import CRealData
+from ClsMThreadPool import ClsMTPool
 
 
 class CStockMarket(CMarket.CMarket):
@@ -20,6 +23,9 @@ class CStockMarket(CMarket.CMarket):
         self.cts = cts.CTushare()
         self.strate = strate.CStrategy()
         self.tools = ctools.CTools()
+        self.mttool = ClsMTPool.Create()
+        self.realdata = CRealData(self.realDataTrigger)
+        # self.realdata = CRealData(None)
 
         self.amprepare = self.configs.getModeulConfig('stockmarket', 'amprepare')
         self.pmprepare = self.configs.getModeulConfig('stockmarket', 'pmprepare')
@@ -29,6 +35,8 @@ class CStockMarket(CMarket.CMarket):
         self.pmend = self.configs.getModeulConfig('stockmarket', 'pmend')
         self.dayworkbegintime = self.configs.getModeulConfig('daywork', 'begin')
         self.dayworkendtime = self.configs.getModeulConfig('daywork', 'end')
+        self.dayworkflag = False
+        self.exitflag = False
 
         self.url = 'http://hq.sinajs.cn/list='
         self.headers = {'Accept': '/',
@@ -57,6 +65,16 @@ class CStockMarket(CMarket.CMarket):
             return True
         return False
 
+    def isDayworkTime(self):
+        if self.dayworkflag:
+            return False
+        else:
+            t1 = self.timeCmp(time.localtime(time.time()), time.strptime(self.dayworkbegintime, "%H:%M:%S"))
+            t2 = self.timeCmp(time.strptime(self.dayworkendtime, "%H:%M:%S"), time.localtime(time.time()))
+            if t1 > 0 and t2 > 0:
+                return True
+        return False
+
     def isDayWork(self):
         t1 = self.timeCmp(time.localtime(time.time()), time.strptime(self.dayworkbegintime, "%H:%M:%S"))
         t2 = self.timeCmp(time.strptime(self.dayworkendtime, "%H:%M:%S"), time.localtime(time.time()))
@@ -72,32 +90,63 @@ class CStockMarket(CMarket.CMarket):
             return True
         return False
 
+    def realDataTrigger(self):
+        self.mttool.add(self.run_fight_macdbbi, '')
+
     def run(self):
+        self.mttool.add(self.monitor, ())
+
+    def endtriiger(self, flag):
+        self.exitflag = flag
+
+    # 打印空闲时间信息
+    def printEmptyTime(self):
+        countdatetime = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f'{countdatetime}')
+
+    # 实时板块统计
+    def runStockIndexStat(self):
+        # 概念成分
+        dfIndex = self.cts.getIndexTHS()
+        # 当前实时数据
+        # alldf = self.realdata.pull()
+        alldf = pd.read_csv('data/minute/20250110/14_59.csv')
+        alldf['code'] = alldf.apply(lambda x: self.tools.getBackCode(x.code), axis=1)
+        db_all = alldf[['code', 'level']]
+        dfIndex['level'] = dfIndex.apply(self.calLevel,db_all=db_all,axis=1)
+        db = dfIndex.query('level != 0')[['ts_code','level','count','name']]
+        db.sort_values(by='level',ascending=False,inplace=True)
+        print(db)
+
+    def calLevel(self,row,db_all):
+        fname = f'{self.cts.ths_member}{row.ts_code}.csv'
+        perlevel = 0
+        if os.path.exists(fname):
+            dk = pd.read_csv(fname)
+            dk = pd.merge(dk, db_all, how='inner', on='code')
+            if dk.shape[0] > 0:
+                perlevel = round(dk['level'].mean(), 4)
+            else:
+                perlevel = 0
+        return perlevel
+
+    def run_fight_macdbbi(self):
         # 获取需要监控的个股
+        alldf = self.realdata.pull()
         date = self.cts.getPreTradeDate()
         case = CMacdBbiCase()
         df = case.getPredictData(date)
+        dk = pd.DataFrame(columns=['code'])
+        dk['code'] = df.apply(lambda x: self.tools.getOnlyCode(x.ts_code), axis=1)
         # df = case.getPredictData(20241227)
+        realdata = pd.merge(alldf, dk, how='inner', on='code')
+        self.fight_macdbbi(df, realdata, date)
 
-        while True:
-            print('======================================')
-            if self.isTradeTime():
-                log(f'数据监控中')
-                self.fight_macdbbi(df, date)
-            else:
-                countdate = datetime.datetime.now().strftime('%Y-%m-%d')
-                counttime = datetime.datetime.now().strftime('%H:%M:%S')
-                print(f'{countdate} {counttime}')
-
-            if self.isPrepareTime():
-                time.sleep(1)
-            else:
-                time.sleep(8)
-
-    def fight_macdbbi(self, df, date):
-        if not df is None and df.shape[0] > 0:
-            dk = self.getStocksRealPrices(df)
-            if not dk is None and dk.shape[0] > 0:
+    def fight_macdbbi(self, df, realdata, date):
+        if df is not None and df.shape[0] > 0:
+            # dk = self.getStocksRealPrices(df)
+            dk = realdata
+            if dk is not None and dk.shape[0] > 0:
                 dk['code'] = dk['code'].apply(lambda x: x + '.SH' if x.startswith('6') else x + '.SZ')
                 dbnew = pd.merge(df, dk[['code', 'price', 'done_num', 'name']], how='left', left_on=['ts_code'],
                                  right_on=['code'])
@@ -217,12 +266,28 @@ class CStockMarket(CMarket.CMarket):
 
         return ret
 
-    # 更新个股资金流向
-    def updateStockMoneyFlow(self, date=None):
-        self.cts.updateStockMoneyFlow2(date)
+    # 监控实时数据并缓存
+    def monitor(self):
+        df = self.cts.filterStocks()
+        while True:
+            print('======================================')
+            if self.isTradeTime():
+                log(f'数据监控中')
+                dk = self.getStocksRealPrices(df)
+                self.realdata.push(dk)
+            else:
+                self.printEmptyTime()
 
-    # 官方不披露北向资金，已经没用了
-    def updateMoneyFlowHSGT(self):
-        now = datetime.datetime.now().strftime('%Y%m%d')
-        start = self.tools.getDateDelta(now, -Constants.ONE_YEARE_DAYS)
-        self.cts.updateMoneyFlowHSGT(start, now)
+            if self.isPrepareTime():
+                time.sleep(1)
+            else:
+                time.sleep(8)
+
+            if self.isDayworkTime():
+                daywork = CDayWork(self.endtriiger)
+                # daywork.endtrigger = self.endtriiger
+                daywork.run()
+                self.dayworkflag = True
+
+            if self.exitflag:
+                break
