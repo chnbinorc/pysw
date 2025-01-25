@@ -105,25 +105,26 @@ class CStockMarket(CMarket.CMarket):
         print(f'{countdatetime}')
 
     # 实时板块统计
-    def runStockIndexStat(self):
+    def runStockIndexStat(self,date,index='N'):
         # 概念成分
-        dfIndex = self.cts.getIndexTHS()
+        dfIndex = self.cts.getIndexTHS(index)
         # 当前实时数据
         # alldf = self.realdata.pull()
-        alldf = pd.read_csv('data/minute/20250110/14_59.csv')
+        alldf = pd.read_csv(f'data/minute/{date}/14_57.csv',dtype={'code': str})
         alldf['code'] = alldf.apply(lambda x: self.tools.getBackCode(x.code), axis=1)
         db_all = alldf[['code', 'level']]
         dfIndex['level'] = dfIndex.apply(self.calLevel,db_all=db_all,axis=1)
         db = dfIndex.query('level != 0')[['ts_code','level','count','name']]
         db.sort_values(by='level',ascending=False,inplace=True)
-        print(db)
+        # print(db)
+        return db
 
     def calLevel(self,row,db_all):
         fname = f'{self.cts.ths_member}{row.ts_code}.csv'
         perlevel = 0
         if os.path.exists(fname):
             dk = pd.read_csv(fname)
-            dk = pd.merge(dk, db_all, how='inner', on='code')
+            dk = pd.merge(dk, db_all, how='inner', left_on='con_code',right_on='code')
             if dk.shape[0] > 0:
                 perlevel = round(dk['level'].mean(), 4)
             else:
@@ -169,7 +170,7 @@ class CStockMarket(CMarket.CMarket):
                 print(dbnewshow.query('succeed > 0').sort_values(by='succeed', ascending=False))
 
     def calClose(self, row):
-        if float(row.close >= float(row.preclose)) and float(row.vol) >= 3.0:
+        if float(row.close) >= float(row.preclose):
             return row.close
         else:
             return row.price

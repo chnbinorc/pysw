@@ -119,13 +119,15 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
         return diff
 
     def calQuaPoint(self, df, col, val):
-        quaLev = df[col].quantile([0.2, 0.4, 0.6, 0.8])
-        idx = 0
-        for it in quaLev:
-            if val < it:
-                return idx
-            idx += 1
-        return idx
+        dk = df.tail(Constants.ONE_YEARE_DAYS)
+        max = dk[col].max()
+        min = dk[col].min()
+        per = (max - min) / 5
+        lev = 0
+        for i in range(1,5):
+            if val > min + per * i:
+                lev = i
+        return lev
 
     def analyCode(self, df, start, end, quaPrice, quaVol):
         # 计算前12日的BBI差值
@@ -194,9 +196,8 @@ class CMacdBbiCaseStock(CCaseBase.CCaseBase):
                 count += 1
                 # it.close = baseclose * (1 + count*0.005)
                 db.loc[len(db)-1,'close'] = baseclose * (1 + count*0.005)
-        quaVols = db['vol'].quantile([0.2, 0.4, 0.6, 0.8])
         quaClose = self.calQuaPoint(db,'close',row.close)
-        return db,quaClose,quaVols,preclose
+        return db,quaClose,preclose
 
     # label = 0,1,2,3,5,7
     def filterBBIRange_0(self,date):

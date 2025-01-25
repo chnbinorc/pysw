@@ -42,6 +42,29 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             db['label'] = labels
             db.to_csv(filename, index=False)
 
+    # 计算所有个股的形态，价格区间，成交量区间
+    def analy_all_bbi(self):
+        cols = ['ts_code', 'label', 'close', 'quaprice', 'quavol','range']
+        result = pd.DataFrame(columns=cols)
+        df = self.cts.filterStocks()
+        for i, row in df.iterrows():
+            fname = f'{self.stockIndiPath}{row.ts_code}.csv'
+            if not os.path.exists(fname):
+                continue
+            dbstock = pd.read_csv(fname)
+            dk = dbstock.tail(12)
+            range = round((dk['BBI'].max() - dk['BBI'].min()) / dk['BBI'].min(),4)
+            close = dk.tail(1).iloc[0]['close']
+            dm = dbstock.tail(Constants.ONE_MONTH_DAYS * 5)
+            arr = np.array(dk['BBI']).reshape(-1, 12, 1)
+            label = self.cia.fit_kshape(arr)[0]
+            dm_1 = dm.sort_values(by='close')
+            quaprice = self.calQuaValues(dm_1,'close',close)
+            dm_2 = dm.sort_values(by='vol')
+            quavol = self.calQuaValues(dm_2, 'vol', dk.tail(1).iloc[0]['vol'])
+            result.loc[len(result)] = [row.ts_code,label,close,quaprice,quavol,range]
+        return result
+
     def analy(self):
         now = self.cts.getLastTradeDate()
         filename = f'{self.stockTempPath}predictdata_{now}.csv'
@@ -93,13 +116,25 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         return data
 
     def calPriceQua(self, df, close):
-        quaLev = df['close'].quantile([0.2, 0.4, 0.6, 0.8])
-        idx = 0
-        for it in quaLev:
-            if close < it:
-                return idx
+        dk = df.tail(Constants.ONE_YEARE_DAYS)
+        max = dk['close'].max()
+        min = dk['close'].min()
+        per = (max - min) / 5
+        lev = 0
+        for i in range(1, 5):
+            if close > min + per * i:
+                lev = i
+        return lev
+
+    def calQuaValues(self,df,col,val):
+        qua = df[col].quantile([0.2, 0.4, 0.6, 0.8])
+        ret = 0
+        idx = 1
+        for it in qua:
+            ret = idx if val > it else ret
             idx += 1
-        return idx
+        return ret
+
 
     def getPredictCodes(self):
         db = self.cts.filterStocks()
@@ -117,24 +152,27 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
 
     def prepareStockDay(self, db):
         db = db.reindex(
-            columns=db.columns.tolist() + ['close', 'vol','succeed', 'vol0', 'rate0', 'vol1', 'rate1', 'vol2', 'rate2', 'vol3',
+            columns=db.columns.tolist() + ['close', 'vol', 'succeed', 'vol0', 'rate0', 'vol1', 'rate1', 'vol2', 'rate2',
+                                           'vol3',
                                            'rate3', 'vol4', 'rate4'])
         stand = pd.read_csv(f'{self.stockTempPath}bbidata_kshape_day_10_std.csv')
         for i, row in db.iterrows():
             stockfile = f'{self.stockIndiPath}{row.ts_code}.csv'
             dm = pd.read_csv(stockfile)
-            quaVols = dm['vol'].quantile([0.2, 0.4, 0.6, 0.8])
+            quaVols = (dm['vol'].max() - dm['vol'].min()) / 5
             cond = f' quaprice == {row.quaprice} and label == {row.label}'
             dk = stand.query(cond).sort_values(by='quavol')
+            if dk.shape[0] == 0:
+                continue
             db.loc[i, 'vol0'] = 0
             db.loc[i, 'rate0'] = dk.iloc[0].succeed
-            db.loc[i, 'vol1'] = quaVols[0.2]
+            db.loc[i, 'vol1'] = dm['vol'].min() + quaVols
             db.loc[i, 'rate1'] = dk.iloc[1].succeed
-            db.loc[i, 'vol2'] = quaVols[0.4]
+            db.loc[i, 'vol2'] = dm['vol'].min() + quaVols * 2
             db.loc[i, 'rate2'] = dk.iloc[2].succeed
-            db.loc[i, 'vol3'] = quaVols[0.6]
+            db.loc[i, 'vol3'] = dm['vol'].min() + quaVols * 3
             db.loc[i, 'rate3'] = dk.iloc[3].succeed
-            db.loc[i, 'vol4'] = quaVols[0.8]
+            db.loc[i, 'vol4'] = dm['vol'].min() + quaVols * 4
             db.loc[i, 'rate4'] = dk.iloc[4].succeed
             db.loc[i, 'close'] = 0
             db.loc[i, 'vol'] = 0
@@ -148,7 +186,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         savefile = f'{self.stockPredictPath}{self.cts.getLastTradeDate()}.csv'
         db.to_csv(savefile, index=False)
 
-    def getPredictData(self,date = datetime.datetime.now().strftime('%Y%m%d')):
+    def getPredictData(self, date=datetime.datetime.now().strftime('%Y%m%d')):
         fname = f'{self.stockPredictPath}{date}.csv'
         if os.path.exists(fname):
             return pd.read_csv(fname)
@@ -170,14 +208,14 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             # tradeDate = self.cts.getPreTradeDate(row.trade_date)
             tradeDate = row.trade_date
             stock = CMacdBbiCaseStock(row.ts_code)
-            db, quaClose, quaVols, preclose = stock.predictStockDay(tradeDate)
+            db, quaClose, preclose = stock.predictStockDay(tradeDate)
             dd = db.tail(12)
             diff = pd.Series(dd['BBI'])
             arr = np.array(diff.values).reshape(-1, 12, 1)
             retlabels = cia.fit_kshape(arr)
-            if retlabels[0] == 6:
+            if retlabels[0] == 5:
                 ret = stock.filterBBIRange_6(tradeDate)
-            elif retlabels[0] == 4 or 8 or 9:
+            elif retlabels[0] == 0 or 3 or 6 or 8:
                 ret = stock.filterBBIRange_1(tradeDate)
             else:
                 ret = stock.filterBBIRange_0(tradeDate)

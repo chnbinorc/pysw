@@ -10,7 +10,7 @@ import CConfigs as Configs
 import Constants
 import Constants as Constatans
 from CTools import CTools
-from CCommon import log,warning,error
+from CCommon import log, warning, error
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -40,21 +40,24 @@ class CTushare:
             if not os.path.exists(CConfigs.dataPath):
                 os.mkdir(CConfigs.dataPath)
             CTushare.tsToken = Configs.getTushareToken()
-        self.allStockFile = '%s/allstock.csv' % CConfigs.dataPath                   # 股票信息
-        self.stockBaseFile = '%s/stockbase.csv' % CConfigs.dataPath                 # 股票基本信息
+        self.allStockFile = '%s/allstock.csv' % CConfigs.dataPath  # 股票信息
+        self.stockBaseFile = '%s/stockbase.csv' % CConfigs.dataPath  # 股票基本信息
         self.stockCompanyFile = '%s/stockcompany.csv' % CConfigs.dataPath
         daypath = Configs.getDataConfig('local', 'daypath')
         bakpath = Configs.getDataConfig('local', 'bakpath')
-        self.stockPriceDayPath = '{0}/{1}/'.format(CConfigs.dataPath, daypath)      # 日线行情数据
-        self.stockBakDayPath = '{0}/{1}/'.format(CConfigs.dataPath, bakpath)        # 备用行情数据路径
+        blocktrade = Configs.getDataConfig('local','blocktrade')
+        self.stockPriceDayPath = '{0}/{1}/'.format(CConfigs.dataPath, daypath)  # 日线行情数据
+        self.stockBakDayPath = '{0}/{1}/'.format(CConfigs.dataPath, bakpath)  # 备用行情数据路径
+        self.blocktrade = f'{CConfigs.dataPath}/{blocktrade}/'                  # 大宗交易路径
 
-        moneyflow = Configs.getDataConfig('local', 'moneyflow')                     # 个股资金流向
-        moneyflow_ths = Configs.getDataConfig('local', 'moneyflow_ths')             # 个股资金流向_同花顺
-        moneyflow_ind_ths = Configs.getDataConfig('local', 'moneyflow_ind_ths')     # 板块资金流向_同花顺
-        moneyflow_mkt_dc = Configs.getDataConfig('local', 'moneyflow_mkt_dc')       # 大盘资金流向_东方财富
+        moneyflow = Configs.getDataConfig('local', 'moneyflow')  # 个股资金流向
+        moneyflow_ths = Configs.getDataConfig('local', 'moneyflow_ths')  # 个股资金流向_同花顺
+        moneyflow_ind_ths = Configs.getDataConfig('local', 'moneyflow_ind_ths')  # 板块资金流向_同花顺
+        moneyflow_mkt_dc = Configs.getDataConfig('local', 'moneyflow_mkt_dc')  # 大盘资金流向_东方财富
 
         ths_index = Configs.getDataConfig('local', 'ths_index')  # 同花顺概念和行业指数
         ths_member = Configs.getDataConfig('local', 'ths_member')  # 同花顺概念板块成分
+        self.ths_yz = Configs.getDataConfig('local', 'ths_yz')  # 同花顺游資名錄
 
         self.ths_index_file = f'{CConfigs.dataPath}/{ths_index}.csv'
         self.ths_member = f'{CConfigs.dataPath}/{ths_member}/'
@@ -72,6 +75,8 @@ class CTushare:
             os.mkdir(self.moneyFlowPath_ths)
         if not os.path.exists(self.moneyFlowPath_ind_ths):
             os.mkdir(self.moneyFlowPath_ind_ths)
+        if not os.path.exists(self.blocktrade):
+            os.mkdir(self.blocktrade)
 
     # region ======================   基本接口    ======================
 
@@ -385,7 +390,7 @@ class CTushare:
         filepath = self.stockPriceDayPath + code + '.csv'
         if not os.path.exists(self.stockPriceDayPath):
             os.mkdir(self.stockPriceDayPath)
-        rows.to_csv(filepath, index=False)
+        rows.to_csv(filepath, index=False, encoding="utf_8_sig")
 
     '''
     有限制，每分钟5次
@@ -419,7 +424,6 @@ class CTushare:
                         df.to_csv(filepath, index=False, encoding="utf_8_sig")
                     time.sleep(20)
             date = CTools.getDateDelta(date, 1)
-
 
     # 5000积分的做法 更新个股资金流向,小单：5万以下 中单：5万～20万 大单：20万～100万 特大单：成交额>=100万
     def updateStockMoneyFlow(self, tscode, start, end, update=False):
@@ -475,7 +479,7 @@ class CTushare:
                 if dk is not None and dk.shape[0] > 0:
                     df = df.append(dk, ignore_index=True)
         df.sort_values(by='trade_date', ascending=True, inplace=True)
-        df.to_csv(fname, index=False)
+        df.to_csv(fname, index=False, encoding="utf_8_sig")
 
     # 2000积分的做法
     def updateStockMoneyFlow2(self, date=None):
@@ -506,7 +510,7 @@ class CTushare:
                                     )
 
         df.sort_values(by='trade_date', ascending=True, inplace=True)
-        df.to_csv(fname, index=False)
+        df.to_csv(fname, index=False, encoding="utf_8_sig")
 
     # 大盘资金流向 , 北向资金不再披露了，没用了
     def updateMoneyFlowHSGT(self, start, end, update=False):
@@ -538,7 +542,7 @@ class CTushare:
                 if dk is not None and dk.shape[0] > 0:
                     df = df.append(dk, ignore_index=True)
         df.sort_values(by='trade_date', ascending=True, inplace=True)
-        df.to_csv(fname, index=False)
+        df.to_csv(fname, index=False, encoding="utf_8_sig")
 
     # 5000积分 更新个股资金流向, 同花顺
     def updateStockMoneyFlowTHS(self, tscode, start, end, update=False):
@@ -583,7 +587,7 @@ class CTushare:
                 if dk is not None and dk.shape[0] > 0:
                     df = df.append(dk, ignore_index=True)
         df.sort_values(by='trade_date', ascending=True, inplace=True)
-        df.to_csv(fname, index=False)
+        df.to_csv(fname, index=False, encoding="utf_8_sig")
 
     # 5000积分 更新板块资金流向, 同花顺
     def updateIndMoneyFlowTHS(self, start, end, update=False):
@@ -594,15 +598,15 @@ class CTushare:
                 next = self.getNextTradeDate(next)
                 continue
             df = CTushare.pro.moneyflow_ind_ths(trade_date=next)
-            if df.shape[0]>0:
-                df.to_csv(fname, index=False)
+            if df.shape[0] > 0:
+                df.to_csv(fname, index=False, encoding="utf_8_sig")
             next = self.getNextTradeDate(next)
 
     # 5000积分 更新同花顺板块分类和分类成分股
     def updateTHSIndex(self):
         try:
             df = CTushare.pro.ths_index()
-            df.to_csv(self.ths_index_file, index=False)
+            df.to_csv(self.ths_index_file, index=False, encoding="utf_8_sig")
             dd = df.query('exchange == "A" and (type == "N" or type == "R") ')
             for i, row in dd.iterrows():
                 fname = f'{self.ths_member}{row.ts_code}.csv'
@@ -610,18 +614,32 @@ class CTushare:
                 #     continue
                 dk = CTushare.pro.ths_member(ts_code=row.ts_code)
                 if dk.shape[0] > 0:
-                    dk.to_csv(fname, index=False)
+                    dk.to_csv(fname, index=False, encoding="utf_8_sig")
         except Exception as err:
             error(err)
 
     # 获取同花顺板块信息
-    def getIndexTHS(self,index='N'):
+    def getIndexTHS(self, index='N'):
         if not os.path.exists(self.ths_index_file):
             self.updateTHSIndex()
         qstr = f'exchange == "A" and type=="{index}"'
         return pd.read_csv(self.ths_index_file).query(qstr)
 
-    # 获取大盘资金流向
+    # 获取个股所属板块
+    def getStockIndex(self, tscode, tstype='N'):
+        dbindex = pd.read_csv(self.ths_index_file).query(f'exchange == "A" and type == "{tstype}" ')
+        dbresult = pd.DataFrame(columns=['ind_code'])
+        for i, row in dbindex.iterrows():
+            fname = f'{self.ths_member}{row.ts_code}.csv'
+            if not os.path.exists(fname):
+                continue
+            db = pd.read_csv(fname, dtype={'code': str})
+            dk = db.query(f'con_code == "{tscode}"')
+            if dk.shape[0] > 0:
+                dbresult.loc[len(dbresult)] = [row.ts_code]
+        return dbresult
+
+    # 更新大盘资金流向
     def updateMarketDC(self):
         now = datetime.datetime.now().strftime('%Y%m%d')
         df = None
@@ -629,16 +647,51 @@ class CTushare:
             start = CTools.getDateDelta(now, -Constants.ONE_YEARE_DAYS)
             df = CTushare.pro.moneyflow_mkt_dc(start_date=start, end_date=now)
         else:
-            dk = pd.read_csv(self.moneyflow_mkt_dc_file,dtype={'trade_date': str})
+            dk = pd.read_csv(self.moneyflow_mkt_dc_file, dtype={'trade_date': str})
             trade_date = dk['trade_date'].max()
             start = self.getNextTradeDate(trade_date)
             if int(start) <= int(now):
                 dz = CTushare.pro.moneyflow_mkt_dc(start_date=start, end_date=now)
                 df = dk.append(dz)
         if df is not None and df.shape[0] > 0:
-            df.sort_values(by='trade_date',inplace=True)
-            df.to_csv(self.moneyflow_mkt_dc_file,index=False)
+            df.sort_values(by='trade_date', inplace=True)
+            df.to_csv(self.moneyflow_mkt_dc_file, index=False, encoding="utf_8_sig")
 
+    # 获取同花顺板块成员
+    def getIndexThsMembers(self, ts_code):
+        fname = f'{self.ths_member}{ts_code}.csv'
+        return pd.read_csv(fname)
+
+    # 更新大宗交易
+    def updateBlockTrade(self,tscode,startdate='',enddate=''):
+        now = datetime.datetime.now().strftime('%Y%m%d')
+        start = CTools.getDateDelta(now, -Constants.ONE_YEARE_DAYS) if startdate == '' else startdate
+        end = now if enddate == '' else enddate
+        fname = f'{self.blocktrade}{tscode}.csv'
+        # if os.path.exists(fname):
+        #     return
+        db = CTushare.pro.block_trade(ts_code=tscode,start_date=start,end_date=end)
+        db.to_csv(fname,index=False, encoding="utf_8_sig")
+        return
+
+    # 获取大宗交易
+    def getBlockTrade(self,tscode,condition='amount > 0'):
+        fname = f'{self.blocktrade}{tscode}.csv'
+        if not os.path.exists(fname):
+            self.updateBlockTrade(tscode)
+        return pd.read_csv(fname).query(condition)
+
+    # 游資名錄
+    def updateYZOrgin(self):
+        fname = f'{CConfigs.dataPath}/{self.ths_yz}.csv'
+        db = CTushare.pro.hm_list()
+        db.to_csv(fname,index=False, encoding="utf_8_sig")
+
+    def getYZOrgin(self):
+        fname = f'{CConfigs.dataPath}/{self.ths_yz}.csv'
+        if not os.path.exists(fname):
+            self.updateYZOrgin()
+        return pd.read_csv(fname)
     # endregion
 
     '''

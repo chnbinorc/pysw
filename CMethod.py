@@ -43,7 +43,44 @@ class CMethod:
 
     # 近3个交易日产生的双金叉个股
     def analyDay(self):
-        return self.bbicase.analy()
+        # self.cts.updateTHSIndex()
+
+        db = self.bbicase.analy()
+        # print(db)
+        index = 'N'
+        market = CStockMarket()
+        dbind = market.runStockIndexStat(self.cts.getPreTradeDate(),index)
+        # dbths = self.cts.getIndexThsMembers('885918.TI')
+        db[['ind_code','ind_range','ind_name']] = db.apply(lambda x: self.mergIndex2Stock(x.ts_code,dbind,index),axis=1,result_type="expand")
+        db.sort_values(by='ind_range', ascending=False, inplace=True)
+        print(db)
+
+    def analy_all_bbi(self):
+        fname = 'd:/temp/analy_all_bbi.csv'
+        if not os.path.exists(fname):
+            db = self.bbicase.analy_all_bbi()
+            db.to_csv(fname,index=False)
+        else:
+            db = pd.read_csv(fname)
+        dk = db.query('label in (0,1,2,4,7,9) and range > 0.1')
+        return dk
+
+    def mergIndex2Stock(self,tscode,dbind,index='N'):
+        db = self.cts.getStockIndex(tscode,index)
+        # print(db)
+        level = -10
+        retstr = None
+        for i,row in db.iterrows():
+            dk = dbind.query(f'ts_code == "{row.ind_code}"')
+            if dk.shape[0] == 0:
+                # print(row)
+                continue
+            if dk.iloc[0].level > level:
+                level = dk.iloc[0].level
+                # retstr = f'{dk.iloc[0].ts_code}-{dk.iloc[0]["name"]}-{dk.iloc[0].level}'
+                retstr = [dk.iloc[0].ts_code,dk.iloc[0].level,dk.iloc[0]["name"]]
+        return retstr
+
 
     # 获取实时行情
     def getRealPrice(self):

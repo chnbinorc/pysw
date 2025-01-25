@@ -114,6 +114,7 @@ class CIndicatorAI:
                     if len(dk) == 0:
                         print(
                             f'条件：价格区间：{i} 成交量区间:{j} 标签区间:{k}  样本为 0')
+                        dbStd.loc[len(dbStd)] = [i, j, k, 0, 0, 0]
                     else:
                         d1 = dk.query('income > 0')
                         d2 = dk.query('income < 0')
