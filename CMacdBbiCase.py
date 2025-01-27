@@ -27,6 +27,12 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         self.cia = CIndicatorAI()
         return
 
+    # region 接口ICaseRun
+    def run(self,realData):
+        self.run_fight_macdbbi(realData)
+
+    # endregion
+
     # 生成预测数据，便于实际运行计算
     def genPredictData(self):
         # 获取满足双金叉数据
@@ -44,7 +50,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
 
     # 计算所有个股的形态，价格区间，成交量区间
     def analy_all_bbi(self):
-        cols = ['ts_code', 'label', 'close', 'quaprice', 'quavol','range']
+        cols = ['ts_code', 'label', 'close', 'quaprice', 'quavol', 'range']
         result = pd.DataFrame(columns=cols)
         df = self.cts.filterStocks()
         for i, row in df.iterrows():
@@ -53,16 +59,16 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
                 continue
             dbstock = pd.read_csv(fname)
             dk = dbstock.tail(12)
-            range = round((dk['BBI'].max() - dk['BBI'].min()) / dk['BBI'].min(),4)
+            range = round((dk['BBI'].max() - dk['BBI'].min()) / dk['BBI'].min(), 4)
             close = dk.tail(1).iloc[0]['close']
             dm = dbstock.tail(Constants.ONE_MONTH_DAYS * 5)
             arr = np.array(dk['BBI']).reshape(-1, 12, 1)
             label = self.cia.fit_kshape(arr)[0]
             dm_1 = dm.sort_values(by='close')
-            quaprice = self.calQuaValues(dm_1,'close',close)
+            quaprice = self.calQuaValues(dm_1, 'close', close)
             dm_2 = dm.sort_values(by='vol')
             quavol = self.calQuaValues(dm_2, 'vol', dk.tail(1).iloc[0]['vol'])
-            result.loc[len(result)] = [row.ts_code,label,close,quaprice,quavol,range]
+            result.loc[len(result)] = [row.ts_code, label, close, quaprice, quavol, range]
         return result
 
     def analy(self):
@@ -126,7 +132,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
                 lev = i
         return lev
 
-    def calQuaValues(self,df,col,val):
+    def calQuaValues(self, df, col, val):
         qua = df[col].quantile([0.2, 0.4, 0.6, 0.8])
         ret = 0
         idx = 1
@@ -134,7 +140,6 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             ret = idx if val > it else ret
             idx += 1
         return ret
-
 
     def getPredictCodes(self):
         db = self.cts.filterStocks()
@@ -261,6 +266,91 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
                 print(idx)
         if db is not None:
             db.to_csv(f'{self.stockTempPath}bbidata.csv', index=False, encoding="utf_8_sig")
+
+    # region fight_macd_bbi_case
+
+    def run_fight_macdbbi(self, realdata):
+        # 获取需要监控的个股
+        alldf = realdata.copy().drop(columns=['buy1_num', 'buy1_price', 'buy2_num', 'buy2_price', 'buy3_num', 'buy3_price', 'buy4_num', 'buy4_price',
+                'buy5_num', 'buy5_price',
+                'sell1_num', 'sell1_price', 'sell2_num', 'sell2_price', 'sell3_num', 'sell3_price', 'sell4_num',
+                'sell4_price', 'sell5_num', 'sell5_price'])
+
+        alldf[['levelW', 'level']] = realdata.apply(lambda x: self.calLevel(x.price, x.open, x.close), axis=1,
+                                                    result_type="expand")
+        alldf.rename(columns={'buy1':'buy','sell1':'sell'},inplace=True)
+        date = self.cts.getPreTradeDate()
+        df = self.getPredictData(date)
+        dk = pd.DataFrame(columns=['code'])
+        dk['code'] = df.apply(lambda x: self.tools.getOnlyCode(x.ts_code), axis=1)
+        mergdata = pd.merge(alldf, dk, how='inner', on='code')
+        self.fight_macdbbi(df, mergdata)
+
+    def calLevel(self, price, open, close):
+        levelW = 0 if float(open) == 0 else round((float(price) - float(open)) / float(open), 4)
+        level = 0 if float(close) == 0 else round((float(price) - float(close)) / float(close), 4)
+        return [levelW, level]
+
+    def fight_macdbbi(self, df, realdata):
+        if df is not None and df.shape[0] > 0:
+            dk = realdata
+            if dk is not None and dk.shape[0] > 0:
+                dk['code'] = dk['code'].apply(lambda x: x + '.SH' if x.startswith('6') else x + '.SZ')
+                dbnew = pd.merge(df, dk[['code', 'price', 'done_num']], how='left', left_on=['ts_code'],
+                                 right_on=['code'])
+
+                fname = f'{self.stockTempPath}fake_buy_{self.cts.getLastTradeDate()}.csv'
+                if os.path.exists(fname):
+                    dbold = pd.read_csv(fname)
+                    dbnew['close'] = dbold['close']
+                dbnew['vol'] = dbnew.apply(lambda x: self.calVolRate(x), axis=1)
+                dbnew['close'] = dbnew.apply(lambda x: self.calClose(x), axis=1)
+                dbnew['succeed'] = dbnew.apply(lambda x: self.calRate(x), axis=1)
+                dbnew.to_csv(fname, index=False)
+                dbnewshow = dbnew.drop(
+                    columns=['vol0', 'rate0', 'vol1', 'rate1', 'vol2', 'rate2', 'vol3', 'rate3', 'vol4', 'rate4',
+                             'code'])
+                income = dbnewshow.apply(
+                    lambda x: round((float(x.price) - float(x.close)) / float(x.close), 4) if float(x.close) > 0 else 0,
+                    axis=1)
+                dbnewshow.insert(loc=7, column='income', value=income)
+                print(dbnewshow.query('succeed > 0').sort_values(by='succeed', ascending=False))
+
+    def calClose(self, row):
+        if float(row.close) >= float(row.preclose):
+            return row.close
+        else:
+            return row.price
+
+    def calVolRate(self, row):
+        if float(row.close) < float(row.preclose):
+            return 0
+        if float(row.done_num) >= float(row.vol4):
+            return 4
+        elif float(row.done_num) >= float(row.vol3):
+            return 3
+        elif float(row.done_num) >= float(row.vol2):
+            return 2
+        elif float(row.done_num) >= float(row.vol1):
+            return 1
+        else:
+            return 0
+
+    def calRate(self, row):
+        if float(row.close) < float(row.preclose):
+            return 0
+        if float(row.done_num) >= float(row.vol4):
+            return row.rate4
+        elif float(row.done_num) >= float(row.vol3):
+            return row.rate3
+        elif float(row.done_num) >= float(row.vol2):
+            return row.rate2
+        elif float(row.done_num) >= float(row.vol1):
+            return row.rate1
+        else:
+            return row.rate0
+
+    # endregion
 
     # 样本检测
     def testSimple(self):

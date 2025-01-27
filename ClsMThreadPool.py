@@ -12,6 +12,7 @@ class ClsTread(threading.Thread):
         self.threadId = threadId
         self.callback = callback
         self.args = args
+        # self.daemon = True
 
     def run(self):
         if self.callback:

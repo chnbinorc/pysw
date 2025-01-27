@@ -1,12 +1,16 @@
 import os.path
 
 import CConfigs
+from CTools import CTools
+from ICase import ICaseRun
 
-class CCaseBase:
+
+class CCaseBase(ICaseRun):
 
     def __init__(self):
         configs = CConfigs.CConfigs()
         path = configs.getLocalDataPath()
+        self.tools = CTools()
         self.allStockFile = '%s/allstock.csv' % path  # 股票信息
         self.stockBaseFile = '%s/stockbase.csv' % path  # 股票基本信息
         self.stockCompanyFile = '%s/stockcompany.csv' % path
@@ -28,7 +32,7 @@ class CCaseBase:
             os.mkdir(self.stockPredictPath)
         if not os.path.exists(self.stockTempPath):
             os.mkdir(self.stockTempPath)
-        return
+
 
     # 准备数据
     def readyData(self, data):
@@ -43,5 +47,6 @@ class CCaseBase:
         return
 
     # 运作
-    def run(self, data):
+    def run(self,realData):
+        print('CCaseBase')
         return

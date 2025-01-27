@@ -24,6 +24,7 @@ from CMacdBbiCaseStock import CMacdBbiCaseStock
 from queue import Queue
 import numpy as np
 
+from testMethod import CTestMethod
 
 # def strinstr(cond):
 #     for i,row in dbyz.iterrows():
@@ -36,44 +37,31 @@ if __name__ == '__main__':
     md = method.CMethod()
     cts = CTushare.CTushare()
     strate = strate.CStrategy()
+    tmd = CTestMethod()
+    market = CStockMarket()
 
-    # df = pd.read_csv('D:/work/StockWinner/source/pysw/data/indicators/000981.SZ.csv')
-    # print(dk)
-    # strate.genIndicatorsDayCode('000977.SZ')
-    # strate.draw('000981.SZ',df,'000981.SZ')
-    # strate.drawMpf(df)
+    market.run()
 
-    # while True:
-    #     cmd = input('请输入指令：')
-    #     if cmd == 'exit':
-    #         break
-    #     else:
-    #         print(cmd)
-    #     time.sleep(10)
-
-    # cts.qryPoints()
-    # md.doWork()
-
-    # md.doBakDataBat(20241125,20241227)
+    # tmd.doWork()
+    # tmd.doBakDataBat(20241125,20241227)
 
     # 生成BBImacd指标模型
-    # md.genMacdBbiModel()
+    # tmd.genMacdBbiModel()
 
     # 生成预处理数据
-    # md.genPreData()
-    # md.genTargetPredictStockDay()
+    # tmd.genPreData()
+    # tmd.genTargetPredictStockDay()
 
     # 日终任务
-    # md.dayWork()
-    md.marketrun()
+    # tmd.dayWork()
 
-    # print(md.analyDay())
-    # print(md.analy_all_bbi())
+    # print(tmd.analyDay())
+    # print(tmd.analy_all_bbi())
 
     # print(cts.getYZOrgin())
     # cts.updateTHSIndex()
-    # md.updateStockMoneyFlow()
-    # md.test_realdata()
+    # tmd.updateStockMoneyFlow()
+    # tmd.test_realdata()
 
     # dbyz = cts.getYZOrgin()
     # db = cts.filterStocks()
@@ -97,8 +85,6 @@ if __name__ == '__main__':
     # nowtime = datetime.datetime.now().strftime('%H%M%S')
     # print(nowtime)
 
-
-
     # print(cts.getBlockTrade('600186.sh'))
 
     # daywork = CDayWork(None)
@@ -106,48 +92,13 @@ if __name__ == '__main__':
     # daywork.updateIndexMoneyFlow_THS()
     # daywork.genPreData()
 
-    # market = CStockMarket()
-    # market.runStockIndexStat()
 
 
+    # tmd.test_stat2()
+    # tmd.test_draw_std()
+    # tmd.test_getRealPrice()
+    # tmd.test_class_abc()
 
-
-
-    # md.test_stat2()
-    # md.test_draw_std()
-
-    # retdb = md.getRealPrice()  # .query('level > 0').sort_values(by='level')
-    # retdb.to_csv('d:/temp/fake_min_data_2.csv', index=False)
-    # print(retdb.query('level > 0').sort_values(by='level'))
-
-    # dk = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv').query('succeed > 0.5 and succeed <= 0.6').sort_values(by=['label','quaprice','quavol'])
-    # print(dk)
-
-    # db = pd.read_csv('d:/temp/bbidata.csv').query('quaprice == 0 and quavol == 3 and label == 6')
-    # # print(db)
-    # # print(db.shape[0])
-    # dz = db.copy()
-    #
-    # tmp = pd.Series()
-    # dz.drop(columns=['quaprice','quavol','days','income','ts_code','trade_date','label'],inplace=True)
-    # for i,row in dz.iterrows():
-    #     arr = np.array(row)
-    #     tmp.loc[len(tmp)] = round(max(arr) - min(arr),3)
-    # # print(tmp)
-    # db['bbi_range'] = tmp.values
-    # print(db.sort_values(by='income'))
-
-    # db = pd.read_csv('d:/temp/bbidata_kshape_day_10_std.csv')
-    # db.sort_values(by='succeed',ascending=False,inplace=True)
-    # print(db)
-
-    # stock = CMacdBbiCaseStock('000002.SZ')
-    # stock.test()
-    # macd = macd.CMacdBbiCase()
-
-    # df = pd.read_csv('d:/temp/macdbbi.csv').query('trade_date >= 20241128')
-    #
-    # print(df)
 
     '''  
     日支出

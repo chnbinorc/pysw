@@ -8,6 +8,7 @@ import xml.dom.minidom
 
 
 class CConfigs:
+    _appConnfigs: None = None
     _domtree: None = None
     _root: None = None
     _dataConfigs: None = None
@@ -22,6 +23,7 @@ class CConfigs:
         CConfigs._root = CConfigs._domtree.documentElement
         CConfigs._dataConfigs = CConfigs._root.getElementsByTagName('DataConfigs')
         CConfigs._moduleConfigs = CConfigs._root.getElementsByTagName('ModeulConfigs')
+        CConfigs._appConnfigs = CConfigs._root.getElementsByTagName('AppConfigs')
 
     def reLoad(self):
         self.initData()
@@ -64,6 +66,14 @@ class CConfigs:
     def getModeulConfig(self, name, key):
         if CConfigs._moduleConfigs is not None:
             configs = CConfigs._moduleConfigs[0].getElementsByTagName('Config')
+            for item in configs:
+                if item.hasAttribute('Name') and item.getAttribute('Name') == name:
+                    return item.getAttribute(key)
+        return ""
+    
+    def getAppConfig(self, name, key):
+        if CConfigs._appConnfigs is not None:
+            configs = CConfigs._appConnfigs[0].getElementsByTagName('Config')
             for item in configs:
                 if item.hasAttribute('Name') and item.getAttribute('Name') == name:
                     return item.getAttribute(key)

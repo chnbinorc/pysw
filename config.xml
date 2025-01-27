@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Root>
+	<!-- 应用程序设置 -->
+	<AppConfigs>
+		<Config Name="main" exit="True" />
+	</AppConfigs>
 	<!-- 数据库设置 -->
 	<DataConfigs>
 		<Config Name="tushare" token="39956a10efc09429356600eae9bf58a7519347b12364afe2b74a1873"/>
@@ -9,7 +13,7 @@
 	</DataConfigs>
 	<!-- 模块配置 -->
 	<ModeulConfigs>
-		<Config Name="stockmarket" amprepare = "09:29:00" pmprepare = "12:59:00" ambegin="09:30:00" amend="11:30:00" pmbegin="13:00:00" pmend="15:00:00" />
+		<Config Name="stockmarket" amprepare = "09:29:00" pmprepare = "12:59:00" ambegin="09:30:00" amend="11:30:00" pmbegin="13:00:00" pmend="23:00:00" />
 		<Config Name="daywork" begin="17:00:00" end="22:00:00" />
 	</ModeulConfigs>
 </Root>
