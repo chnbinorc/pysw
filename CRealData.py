@@ -5,9 +5,17 @@ import datetime
 import CConfigs as configs
 import os
 import threading
-
+from CCommon import log, warning, error
 
 class CRealData:
+    realdata = None
+
+    @staticmethod
+    def create(fncallback=None):
+        if CRealData.realdata is None:
+            CRealData.realdata = CRealData(fncallback)
+        return CRealData.realdata
+
     def __init__(self, fncallback):
         self.newData = None
         self.lock = threading.Lock()
@@ -22,22 +30,33 @@ class CRealData:
             os.mkdir(self.minutePath)
         self.minute = -1
 
-    def push(self, df):
-        self.lock.acquire()
-        self.newData = df
-        minute = datetime.datetime.now().minute
-        if self.minute != minute:
-            self.saveData()
-            self.minute = minute
-        self.lock.release()
-        if not self.fnTrigger is None:
+    def push(self, df,write=True):
+        try:
+            if not write:
+                self.newData = df
+            else:
+                self.lock.acquire()
+                minute = datetime.datetime.now().minute
+                if self.minute != minute:
+                    self.saveData()
+                    self.minute = minute
+                    self.newData = df
+                else:
+                    self.newData = pd.concat([self.newData, df], ignore_index=True, axis=0)
+                self.lock.release()
+        except Exception as er:
+            if self.lock.locked():
+                self.lock.release()
+            error(er)
+
+        if self.fnTrigger is not None:
             self.fnTrigger()
 
     def pull(self):
-        self.lock.acquire()
-        bak = self.newData.copy()
-        self.lock.release()
-        return bak
+        # self.lock.acquire()
+        # bak = self.newData.copy()
+        # self.lock.release()
+        return self.newData
 
     def saveData(self):
         now = datetime.datetime.now()

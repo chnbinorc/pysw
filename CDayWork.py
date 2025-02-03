@@ -21,6 +21,8 @@ class CDayWork:
 
     def run(self):
         log('============开始日终处理============')
+        log('更新基本信息')
+        self.cts.updateAllStockBase()
         log('更新备用数据')
         self.doBakData()
         log('更新日线行情数据')

@@ -1,4 +1,3 @@
-
 import pandas as pd
 import os
 import numpy as np
@@ -13,11 +12,13 @@ from CMacdBbiCaseStock import CMacdBbiCaseStock
 from CMacdBbiCase import CMacdBbiCase
 from CIndicatorAI import CIndicatorAI
 from CStockMarket import CStockMarket
+from CWebSocket import CWebSocket
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('max_colwidth', 10000)
 pd.set_option('display.width', 10000)
+
 
 class CTestMethod:
     def __init__(self):
@@ -31,7 +32,7 @@ class CTestMethod:
 
     # 日终任务
     def dayWork(self):
-        daywork = CDayWork()
+        daywork = CDayWork(None)
         daywork.run()
 
     # 近3个交易日产生的双金叉个股
@@ -85,13 +86,118 @@ class CTestMethod:
         cia.test_make_kshape_day_10()
 
     # region 测试代码
+
+    # 多头并列
+    def test_longPosition(self):
+        return
+
+    # 打板战法
+    def test_checkData(self):
+        # fpath = 'data/minute/20250127/'
+        # files = os.listdir(fpath)
+        # alldb = None
+        # for fl in files:
+        #     fname = os.path.join(fpath,fl)
+        #     db = pd.read_csv(fname).query('code == 600807')
+        #     alldb = db if alldb is None else pd.concat([alldb, db], ignore_index=True, axis=0)
+        # alldb.sort_values(by='time',inplace=True)
+        # print(alldb)
+
+        # fname = 'data/temp/fake_buy_20250127.csv'
+        # db = pd.read_csv(fname).query('flag == True').sort_values(by='income')
+        # print(db)
+
+        # retdb = pd.DataFrame()
+        # db = self.cts.filterStocks()
+        # print(f'总数：{db.shape[0]}')
+        # count = 1
+        # for i, row in db.iterrows():
+        #     fname = f'data/indicators/{row.ts_code}.csv'
+        #     subdb = pd.read_csv(fname)
+        #     subdb['topflag'] = subdb.apply(lambda x: 1 if round((x.close - x.pre_close) / x.pre_close, 4) > 0.09 else 0,
+        #                                    axis=1)
+        #     dk = subdb.query('topflag == 1')
+        #     for j, it in dk.iterrows():
+        #         d2 = self.cts.getPreTradeDate(it.trade_date)
+        #         d1 = self.cts.getPreTradeDate(d2)
+        #         db1 = dk.query(f'trade_date == {d1}')
+        #         db2 = dk.query(f'trade_date == {d2}')
+        #         if db1.shape[0] == 0 and db2.shape[0] == 1:
+        #             retdb = retdb.append(it, ignore_index=True)
+        #     count += 1
+        #     if count % 50 == 0:
+        #         print(count)
+        # retdb[['trade_date']] = retdb[['trade_date']].astype(int)
+        # print(retdb)
+        # retdb.to_csv('data/temp/all_top_analy.csv',index=False)
+
+        buydb = retdb = pd.DataFrame()
+        retdb = pd.read_csv('data/temp/all_top_analy.csv')
+        print(retdb.shape[0])
+        count = 0
+        for i,row in retdb.iterrows():
+            fname = f'data/indicators/{row.ts_code}.csv'
+            db = pd.read_csv(fname)
+            next = self.cts.getNextTradeDate(row.trade_date)
+            flag = True
+            while flag:
+                qdb = db.query(f'trade_date == {next}')
+                if qdb.shape[0] > 0 and qdb.iloc[0].high != qdb.iloc[0].low:
+                    buydb = buydb.append(row, ignore_index=True)
+                    flag = False
+                elif qdb.shape[0] == 0 :
+                    flag = False
+                next = self.cts.getNextTradeDate(next)
+            if count % 20 == 0:
+                print(count)
+            count += 1
+        buydb.to_csv('data/temp/all_top_analy_buy.csv',index=False)
+
+    def test_boardwin(self):
+        # db = pd.read_csv('data/temp/all_top_analy_buy.csv',dtype={'trade_date': int})
+        # db['winflag'] = db.apply(lambda x: self.test_checkwin(db,x),axis=1)
+        # print(db)
+        # all = db.shape[0]
+        # print(all)
+        # win = db.query('winflag == True').shape[0]
+        # los = db.query('winflag == False').shape[0]
+        # print(f'win:{win},los:{los} , rate: {win / all}')
+        # db.to_csv('data/temp/all_top_analy_buy.csv',index=False)
+        db = pd.read_csv('data/temp/all_top_analy_buy.csv', dtype={'trade_date': int})
+        print(db.query('winflag == False').head(100))
+
+    def test_checkwin(self,db,row):
+        next = self.cts.getNextTradeDate(row.trade_date)
+        fname = f'data/indicators/{row.ts_code}.csv'
+        stockdb = pd.read_csv(fname).query(f'trade_date >= {next}')
+        close = 0
+        # 止盈5个点，止损3个点
+        winrate = 0
+        for i,it in stockdb.iterrows():
+            if close == 0:
+                if it.high == it.low:
+                    continue
+                else:
+                    close = it.close
+                    continue
+            rate = round((it.close - close) / close,4)
+            if rate > winrate:
+                winrate = rate
+            else:
+                if winrate - rate > 0.03:
+                    winrate = rate
+                    break
+            if winrate > 0.08:
+                break
+        return winrate > 0
+
     def test_realdata(self):
         market = CStockMarket()
         market.realDataTrigger()
+
     def test_draw_std(self):
         cia = CIndicatorAI()
         cia.test_draw_std()
-
 
     # 检查个股某个点的label情况
     def test_stat5(self):
@@ -115,4 +221,9 @@ class CTestMethod:
     def test_class_abc(self):
         case = CMacdBbiCase()
         case.run()
+
+    def test_webcoket(self):
+        web = CWebSocket()
+        web.start()
+
     # endregion

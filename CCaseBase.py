@@ -35,7 +35,7 @@ class CCaseBase(ICaseRun):
 
 
     # 准备数据
-    def readyData(self, data):
+    def readyData(self):
         return
 
     # 测试
@@ -47,6 +47,6 @@ class CCaseBase(ICaseRun):
         return
 
     # 运作
-    def run(self,realData):
+    def run(self):
         print('CCaseBase')
         return

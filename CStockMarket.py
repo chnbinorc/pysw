@@ -1,6 +1,5 @@
-import math
 import os.path
-import sys
+
 import CMarket
 import requests
 import pandas as pd
@@ -9,23 +8,21 @@ import time
 import CStrategy as strate
 import CTools as ctools
 import CTushare as cts
-import Constants
 from CDayWork import CDayWork
-from CMacdBbiCase import CMacdBbiCase
 from CCommon import log, warning, error
+from CMacdBbiCase import CMacdBbiCase
 from CRealData import CRealData
 from ClsMThreadPool import ClsMTPool
 
 
 class CStockMarket(CMarket.CMarket):
-    def __init__(self):
+    def __init__(self, fntrigger=None):
         super().__init__()
         self.cts = cts.CTushare()
         self.strate = strate.CStrategy()
         self.tools = ctools.CTools()
         self.mttool = ClsMTPool.Create()
-        self.realdata = CRealData(self.realDataTrigger)
-        # self.realdata = CRealData(None)
+        self.realdata = CRealData.create(fntrigger)
 
         self.amprepare = self.configs.getModeulConfig('stockmarket', 'amprepare')
         self.pmprepare = self.configs.getModeulConfig('stockmarket', 'pmprepare')
@@ -37,6 +34,8 @@ class CStockMarket(CMarket.CMarket):
         self.dayworkendtime = self.configs.getModeulConfig('daywork', 'end')
         self.dayworkflag = False
         self.exitflag = False
+        self.isReplay = False
+        self.minutepath = self.configs.getDataConfig('local', 'minutepath')
 
         self.url = 'http://hq.sinajs.cn/list='
         self.headers = {'Accept': '/',
@@ -90,9 +89,6 @@ class CStockMarket(CMarket.CMarket):
             return True
         return False
 
-    def realDataTrigger(self):
-        self.mttool.add(self.run_fight_macdbbi, '')
-
     def run(self):
         self.mttool.add(self.monitor, ())
 
@@ -105,110 +101,38 @@ class CStockMarket(CMarket.CMarket):
         print(f'{countdatetime}')
 
     # 实时板块统计
-    def runStockIndexStat(self,date,index='N'):
-        # 概念成分
-        dfIndex = self.cts.getIndexTHS(index)
-        # 当前实时数据
-        # alldf = self.realdata.pull()
-        alldf = pd.read_csv(f'data/minute/{date}/14_57.csv',dtype={'code': str})
-        alldf['code'] = alldf.apply(lambda x: self.tools.getBackCode(x.code), axis=1)
-        db_all = alldf[['code', 'level']]
-        dfIndex['level'] = dfIndex.apply(self.calLevel,db_all=db_all,axis=1)
-        db = dfIndex.query('level != 0')[['ts_code','level','count','name']]
-        db.sort_values(by='level',ascending=False,inplace=True)
-        # print(db)
-        return db
+    # def runStockIndexStat(self, date, index='N'):
+    #     # 概念成分
+    #     dfIndex = self.cts.getIndexTHS(index)
+    #     # 当前实时数据
+    #     # alldf = self.realdata.pull()
+    #     alldf = pd.read_csv(f'data/minute/{date}/14_57.csv', dtype={'code': str})
+    #     alldf['code'] = alldf.apply(lambda x: self.tools.getBackCode(x.code), axis=1)
+    #     db_all = alldf[['code', 'level']]
+    #     dfIndex['level'] = dfIndex.apply(self.calLevel, db_all=db_all, axis=1)
+    #     db = dfIndex.query('level != 0')[['ts_code', 'level', 'count', 'name']]
+    #     db.sort_values(by='level', ascending=False, inplace=True)
+    #     # print(db)
+    #     return db
 
-    def calLevel(self,row,db_all):
-        fname = f'{self.cts.ths_member}{row.ts_code}.csv'
-        perlevel = 0
-        if os.path.exists(fname):
-            dk = pd.read_csv(fname)
-            dk = pd.merge(dk, db_all, how='inner', left_on='con_code',right_on='code')
-            if dk.shape[0] > 0:
-                perlevel = round(dk['level'].mean(), 4)
-            else:
-                perlevel = 0
-        return perlevel
-
-    def run_fight_macdbbi(self):
-        # 获取需要监控的个股
-        alldf = self.realdata.pull()
-        date = self.cts.getPreTradeDate()
-        case = CMacdBbiCase()
-        df = case.getPredictData(date)
-        dk = pd.DataFrame(columns=['code'])
-        dk['code'] = df.apply(lambda x: self.tools.getOnlyCode(x.ts_code), axis=1)
-        # df = case.getPredictData(20241227)
-        realdata = pd.merge(alldf, dk, how='inner', on='code')
-        self.fight_macdbbi(df, realdata, date)
-
-    def fight_macdbbi(self, df, realdata, date):
-        if df is not None and df.shape[0] > 0:
-            # dk = self.getStocksRealPrices(df)
-            dk = realdata
-            if dk is not None and dk.shape[0] > 0:
-                dk['code'] = dk['code'].apply(lambda x: x + '.SH' if x.startswith('6') else x + '.SZ')
-                dbnew = pd.merge(df, dk[['code', 'price', 'done_num', 'name']], how='left', left_on=['ts_code'],
-                                 right_on=['code'])
-
-                fname = f'{self.stockTempPath}fake_buy_{self.cts.getLastTradeDate()}.csv'
-                if os.path.exists(fname):
-                    dbold = pd.read_csv(fname)
-                    dbnew['close'] = dbold['close']
-                dbnew['vol'] = dbnew.apply(lambda x: self.calVolRate(x), axis=1)
-                dbnew['close'] = dbnew.apply(lambda x: self.calClose(x), axis=1)
-                dbnew['succeed'] = dbnew.apply(lambda x: self.calRate(x), axis=1)
-                dbnew.to_csv(fname, index=False)
-                dbnewshow = dbnew.drop(
-                    columns=['vol0', 'rate0', 'vol1', 'rate1', 'vol2', 'rate2', 'vol3', 'rate3', 'vol4', 'rate4',
-                             'code'])
-                income = dbnewshow.apply(
-                    lambda x: round((float(x.price) - float(x.close)) / float(x.close), 4) if float(x.close) > 0 else 0,
-                    axis=1)
-                dbnewshow.insert(loc=7, column='income', value=income)
-                print(dbnewshow.query('succeed > 0').sort_values(by='succeed', ascending=False))
-
-    def calClose(self, row):
-        if float(row.close) >= float(row.preclose):
-            return row.close
-        else:
-            return row.price
-
-    def calVolRate(self, row):
-        if float(row.close) < float(row.preclose):
-            return 0
-        if row.done_num >= row.vol4:
-            return 4
-        elif row.done_num >= row.vol3:
-            return 3
-        elif row.done_num >= row.vol2:
-            return 2
-        elif row.done_num >= row.vol1:
-            return 1
-        else:
-            return 0
-
-    def calRate(self, row):
-        if float(row.close) < float(row.preclose):
-            return 0
-        if row.done_num >= row.vol4:
-            return row.rate4
-        elif row.done_num >= row.vol3:
-            return row.rate3
-        elif row.done_num >= row.vol2:
-            return row.rate2
-        elif row.done_num >= row.vol1:
-            return row.rate1
-        else:
-            return row.rate0
+    # def calLevel(self, row, db_all):
+    #     fname = f'{self.cts.ths_member}{row.ts_code}.csv'
+    #     perlevel = 0
+    #     if os.path.exists(fname):
+    #         dk = pd.read_csv(fname)
+    #         dk = pd.merge(dk, db_all, how='inner', left_on='con_code', right_on='code')
+    #         if dk.shape[0] > 0:
+    #             perlevel = round(dk['level'].mean(), 4)
+    #         else:
+    #             perlevel = 0
+    #     return perlevel
 
     def getStocksRealPrices(self, df):
         tl = int(df.shape[0] / 300) + 1
         total = None
         for m in range(0, tl):
             codes = self.getRequestCodes(df, m)
-            result = self.GetRealPrices2(codes)
+            result = self.getRealPrice3(codes)
             if total is None:
                 total = result
             else:
@@ -221,6 +145,48 @@ class CStockMarket(CMarket.CMarket):
         end = star + 300
         for idx, row in data[star:end].iterrows():
             ret = ret + row['ts_code'] + ','
+        return ret
+
+    # 保留原始的原始的数据
+    def getRealPrice3(self, codes):
+        src = codes.split(',')
+        sp = self.url
+        t = ''
+        for stritem in src:
+            if len(stritem) == 0:
+                continue
+            s1 = stritem.lower().split('.')
+            if len(s1) < 2:
+                t = s1[0]
+                break
+            t = t + s1[1] + s1[0] + ','
+        sp = sp + t
+        r = requests.get(sp, headers=self.headers)
+        r.encoding = 'gbk'
+        cols = ['code', 'open', 'close', 'price', 'high', 'low', 'buy1', 'sell1', 'done_num', 'done_money',
+                'buy1_num', 'buy1_price', 'buy2_num', 'buy2_price', 'buy3_num', 'buy3_price', 'buy4_num', 'buy4_price',
+                'buy5_num', 'buy5_price',
+                'sell1_num', 'sell1_price', 'sell2_num', 'sell2_price', 'sell3_num', 'sell3_price', 'sell4_num',
+                'sell4_price', 'sell5_num', 'sell5_price',
+                'date', 'time']
+        ret = pd.DataFrame(columns=cols, index=[])
+        for retstr in r.text.split(';'):
+            if len(retstr) < 50:
+                continue
+            p1 = retstr.index("\"") + 1
+            p2 = retstr.rindex("\"") - 1
+
+            if p2 > p1:
+                db = retstr[p1:p2].split(',')
+                if p1 == 21:
+                    code = str(retstr[13:19])
+                else:
+                    code = str(retstr[14:20])
+
+            ret.loc[len(ret)] = [code, db[1], db[2], db[3], db[4], db[5], db[6], db[7], db[8], db[9],
+                                 db[10], db[11], db[12], db[13], db[14], db[15], db[16], db[17], db[18], db[19],
+                                 db[20], db[21], db[22], db[23], db[24], db[25], db[26], db[27], db[28], db[29],
+                                 db[30], db[31]]
         return ret
 
     def GetRealPrices2(self, codes):
@@ -267,14 +233,42 @@ class CStockMarket(CMarket.CMarket):
 
         return ret
 
-    # 监控实时数据并缓存
-    def monitor(self):
+    def setReplay(self, flag=False):
+        self.isReplay = flag
+
+    def replayModel(self, date=''):
+        try:
+            if self.isReplay:
+                rData = self.cts.getLastTradeDate() if date == '' else date
+                fpath = f'{self.path}/{self.minutepath}/{rData}/'
+                if not os.path.exists(fpath):
+                    print(f'路径不存在 {fpath}')
+                allfiles = os.listdir(fpath)
+                files = sorted(allfiles,key=lambda file: os.path.getctime(os.path.join(fpath, file)))
+                alldb = None
+                for fl in files:
+                    fname = os.path.join(fpath, fl)
+                    db = pd.read_csv(fname,dtype={'code': str})
+                    self.realdata.push(db,False)
+                    time.sleep(0.1)
+                    # alldb = db if alldb is None else pd.concat([alldb, db], ignore_index=True, axis=0)
+                # alldb.sort_values(by='time', inplace=True)
+                # self.realdata.push(alldb, False)
+        except Exception as er:
+            print(er)
+
+    def realModel(self):
+        # now = datetime.datetime.now().strftime('%Y%m%d')
+        # if not self.cts.isTradeDate(now):
+        #     print('不是交易日！')
+        #     return
         df = self.cts.filterStocks()
         while True:
             print('======================================')
             if self.isTradeTime():
                 log(f'数据监控中')
                 dk = self.getStocksRealPrices(df)
+                # dk = pd.read_csv('data/minute/20250127/14_25.csv')
                 self.realdata.push(dk)
             else:
                 self.printEmptyTime()
@@ -292,3 +286,13 @@ class CStockMarket(CMarket.CMarket):
 
             if self.exitflag:
                 break
+
+    # 监控实时数据并缓存
+    def monitor(self):
+        try:
+            if self.isReplay:
+                self.replayModel()
+            else:
+                self.realModel()
+        except Exception as ex:
+            error(ex)

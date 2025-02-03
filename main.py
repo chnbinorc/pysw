@@ -38,9 +38,12 @@ if __name__ == '__main__':
     cts = CTushare.CTushare()
     strate = strate.CStrategy()
     tmd = CTestMethod()
-    market = CStockMarket()
 
-    market.run()
+    md.runMarket()
+    md.runWebsocket()
+
+    # tmd.test_checkData()
+    # tmd.test_boardwin()
 
     # tmd.doWork()
     # tmd.doBakDataBat(20241125,20241227)
@@ -51,6 +54,8 @@ if __name__ == '__main__':
     # 生成预处理数据
     # tmd.genPreData()
     # tmd.genTargetPredictStockDay()
+
+    # tmd.test_webcoket()
 
     # 日终任务
     # tmd.dayWork()

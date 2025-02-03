@@ -4,6 +4,8 @@ import numpy as np
 
 import CCaseBase
 import os
+
+import CRealData
 import CTushare as cts
 import datetime
 import pandas as pd
@@ -28,8 +30,10 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         return
 
     # region 接口ICaseRun
-    def run(self,realData):
-        self.run_fight_macdbbi(realData)
+    def run(self):
+        cdata = CRealData.CRealData.create()
+        db = cdata.pull().drop_duplicates(subset='code')
+        self.run_fight_macdbbi(db)
 
     # endregion
 
@@ -220,7 +224,7 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
             retlabels = cia.fit_kshape(arr)
             if retlabels[0] == 5:
                 ret = stock.filterBBIRange_6(tradeDate)
-            elif retlabels[0] == 0 or 3 or 6 or 8:
+            elif retlabels[0] in (0, 3, 6, 8):
                 ret = stock.filterBBIRange_1(tradeDate)
             else:
                 ret = stock.filterBBIRange_0(tradeDate)
@@ -234,10 +238,10 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         dk['label'] = labels.values
         dk['flag'] = flags.values
         dk['preclose'] = precloses.values
-        dk = dk.query('flag == True')
-        dk.sort_values(by='flag', inplace=True)
+        dz = dk.query('flag == True')
+        # dz.sort_values(by='flag', inplace=True)
         log(f'开始准备目标预测数据')
-        self.prepareStockDay(dk)
+        self.prepareStockDay(dz)
 
     def checkBBIGold(self, df):
         return
@@ -271,50 +275,61 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
 
     def run_fight_macdbbi(self, realdata):
         # 获取需要监控的个股
-        alldf = realdata.copy().drop(columns=['buy1_num', 'buy1_price', 'buy2_num', 'buy2_price', 'buy3_num', 'buy3_price', 'buy4_num', 'buy4_price',
-                'buy5_num', 'buy5_price',
-                'sell1_num', 'sell1_price', 'sell2_num', 'sell2_price', 'sell3_num', 'sell3_price', 'sell4_num',
-                'sell4_price', 'sell5_num', 'sell5_price'])
+        alldf = realdata.copy().drop(
+            columns=['buy1_num', 'buy1_price', 'buy2_num', 'buy2_price', 'buy3_num', 'buy3_price', 'buy4_num',
+                     'buy4_price',
+                     'buy5_num', 'buy5_price',
+                     'sell1_num', 'sell1_price', 'sell2_num', 'sell2_price', 'sell3_num', 'sell3_price', 'sell4_num',
+                     'sell4_price', 'sell5_num', 'sell5_price'])
 
-        alldf[['levelW', 'level']] = realdata.apply(lambda x: self.calLevel(x.price, x.open, x.close), axis=1,
-                                                    result_type="expand")
-        alldf.rename(columns={'buy1':'buy','sell1':'sell'},inplace=True)
-        date = self.cts.getPreTradeDate()
-        df = self.getPredictData(date)
-        dk = pd.DataFrame(columns=['code'])
-        dk['code'] = df.apply(lambda x: self.tools.getOnlyCode(x.ts_code), axis=1)
-        mergdata = pd.merge(alldf, dk, how='inner', on='code')
-        self.fight_macdbbi(df, mergdata)
+        alldf[['levelW', 'level', 'done_num', 'done_money']] = realdata.apply(
+            lambda x: self.calLevel(x.price, x.open, x.close, x.done_num, x.done_money), axis=1,
+            result_type="expand")
+        alldf.rename(columns={'buy1': 'buy', 'sell1': 'sell'}, inplace=True)
 
-    def calLevel(self, price, open, close):
+        fname = f'{self.stockTempPath}fake_buy_{self.cts.getLastTradeDate()}.csv'
+        if os.path.exists(fname):
+            df = pd.read_csv(fname)
+        else:
+            date = self.cts.getPreTradeDate()
+            # date = self.cts.getPreTradeDate('20250127')
+            df = self.getPredictData(date)
+            df.loc[:, 'buytime'] = 0
+        alldf['code'] = alldf['code'].apply(lambda x: x + '.SH' if x.startswith('6') else x + '.SZ')
+        dbnew = pd.merge(df, alldf[['code', 'price', 'done_num', 'time']], how='left', left_on=['ts_code'],
+                         right_on=['code'])
+        dbnew['vol'] = dbnew.apply(lambda x: self.calVolRate(x), axis=1)
+        dbnew['close'] = dbnew.apply(lambda x: self.calClose(x), axis=1)
+        dbnew['succeed'] = dbnew.apply(lambda x: self.calRate(x), axis=1)
+
+        dbnew['income'] = dbnew.apply(
+            lambda x: round((float(x.price) - float(x.close)) / float(x.close), 4) if float(x.close) > 0 else 0,
+            axis=1)
+        dbnew['newclose'] = dbnew['price']
+
+        dbnewshow = dbnew.drop(
+            columns=['vol0', 'rate0', 'vol1', 'rate1', 'vol2', 'rate2', 'vol3', 'rate3', 'vol4', 'rate4',
+                     'code'])
+        # income = dbnewshow.apply(
+        #     lambda x: round((float(x.price) - float(x.close)) / float(x.close), 4) if float(x.close) > 0 else 0,
+        #     axis=1)
+        # dbnewshow.insert(loc=7, column='income', value=income)
+        dshow = dbnewshow.query('income > 0').sort_values(by='succeed', ascending=False)
+        dbnew['buytime'] = dbnew.apply(
+            lambda x: x.time if float(x.close) >= float(x.preclose) and str(
+                x.buytime) == '0' else x.buytime, axis=1)
+        dbnew.drop(columns=['code', 'price', 'done_num', 'time'], inplace=True)
+
+        dbnew.to_csv(fname, index=False)
+        if dshow.shape[0] > 0:
+            print(dshow)
+
+    def calLevel(self, price, open, close, num, money):
         levelW = 0 if float(open) == 0 else round((float(price) - float(open)) / float(open), 4)
         level = 0 if float(close) == 0 else round((float(price) - float(close)) / float(close), 4)
-        return [levelW, level]
-
-    def fight_macdbbi(self, df, realdata):
-        if df is not None and df.shape[0] > 0:
-            dk = realdata
-            if dk is not None and dk.shape[0] > 0:
-                dk['code'] = dk['code'].apply(lambda x: x + '.SH' if x.startswith('6') else x + '.SZ')
-                dbnew = pd.merge(df, dk[['code', 'price', 'done_num']], how='left', left_on=['ts_code'],
-                                 right_on=['code'])
-
-                fname = f'{self.stockTempPath}fake_buy_{self.cts.getLastTradeDate()}.csv'
-                if os.path.exists(fname):
-                    dbold = pd.read_csv(fname)
-                    dbnew['close'] = dbold['close']
-                dbnew['vol'] = dbnew.apply(lambda x: self.calVolRate(x), axis=1)
-                dbnew['close'] = dbnew.apply(lambda x: self.calClose(x), axis=1)
-                dbnew['succeed'] = dbnew.apply(lambda x: self.calRate(x), axis=1)
-                dbnew.to_csv(fname, index=False)
-                dbnewshow = dbnew.drop(
-                    columns=['vol0', 'rate0', 'vol1', 'rate1', 'vol2', 'rate2', 'vol3', 'rate3', 'vol4', 'rate4',
-                             'code'])
-                income = dbnewshow.apply(
-                    lambda x: round((float(x.price) - float(x.close)) / float(x.close), 4) if float(x.close) > 0 else 0,
-                    axis=1)
-                dbnewshow.insert(loc=7, column='income', value=income)
-                print(dbnewshow.query('succeed > 0').sort_values(by='succeed', ascending=False))
+        done_num = round(float(num) / 100,4)
+        done_money = round(float(money) / 10000,4)
+        return [levelW, level, done_num, done_money]
 
     def calClose(self, row):
         if float(row.close) >= float(row.preclose):
