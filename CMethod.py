@@ -1,4 +1,7 @@
 import datetime
+import importlib
+import json
+import sys
 import threading
 import time
 import pandas as pd
@@ -6,8 +9,8 @@ import os
 import numpy as np
 
 import CConfigs
+import CMacdBbiCase
 from CCommon import log, warning, error
-from CMacdBbiCase import CMacdBbiCase
 from CStockMarket import CStockMarket
 from CWebSocket import CWebSocket
 
@@ -25,6 +28,7 @@ class CMethod:
         self.mttool = ClsMTPool.Create()
         self.market = CStockMarket(self.realDataTrigger)
         self.websocket = CWebSocket(self.websocketTrigger)
+        sys.path.append('/')
         return
 
     def run(self):
@@ -39,18 +43,36 @@ class CMethod:
 
     # 触发器，实时数据获取时触发
     def realDataTrigger(self):
-        print('实时数据获取时触发')
         try:
-            case = CMacdBbiCase()
-            case.run()
+            print('实时数据获取时触发')
+            # case = CMacdBbiCase()
+            # case.run()
         except Exception as er:
             print(er)
 
-    def websocketTrigger(self,data):
-        print(data)
+    def websocketTrigger(self, data):
+        try:
+            jobj = json.loads(data)
+            print(f'{jobj["name"]} {jobj["command"]}')
+            if jobj["command"] == 'load_module':
+                self.loadModule(jobj["name"])
+            elif jobj["command"] == 'run':
+                module = self.loadModule(jobj["name"])
+                cls = getattr(module, jobj["name"])
+                obj = cls.create()
+            return obj.run()
+        except Exception as er:
+            print(er)
+
+    def loadModule(self, name):
+        if name in sys.modules:
+            module = importlib.reload(sys.modules[name])
+        else:
+            module = importlib.import_module(name)
+        return module
 
     def checkExit(self):
-        flag = self.configs.getAppConfig('main','exit')
+        flag = self.configs.getAppConfig('main', 'exit')
         if str.lower(flag) == 'true':
             return True
         else:

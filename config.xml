@@ -3,6 +3,8 @@
 	<!-- 应用程序设置 -->
 	<AppConfigs>
 		<Config Name="main" exit="True" />
+		<Plugins>
+		</Plugins>
 	</AppConfigs>
 	<!-- 数据库设置 -->
 	<DataConfigs>
@@ -13,7 +15,7 @@
 	</DataConfigs>
 	<!-- 模块配置 -->
 	<ModeulConfigs>
-		<Config Name="stockmarket" amprepare = "09:29:00" pmprepare = "12:59:00" ambegin="09:30:00" amend="11:30:00" pmbegin="13:00:00" pmend="23:00:00" />
-		<Config Name="daywork" begin="17:00:00" end="22:00:00" />
+		<Config Name="stockmarket" moke="False" amprepare = "09:29:00" pmprepare = "12:59:00" ambegin="09:30:00" amend="11:30:00" pmbegin="13:00:00" pmend="15:00:00" />
+		<Config Name="daywork" begin="17:00:00" end="23:30:00" />
 	</ModeulConfigs>
 </Root>

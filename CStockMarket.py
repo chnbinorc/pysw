@@ -258,10 +258,10 @@ class CStockMarket(CMarket.CMarket):
             print(er)
 
     def realModel(self):
-        # now = datetime.datetime.now().strftime('%Y%m%d')
-        # if not self.cts.isTradeDate(now):
-        #     print('不是交易日！')
-        #     return
+        now = datetime.datetime.now().strftime('%Y%m%d')
+        if not self.cts.isTradeDate(now):
+            print('不是交易日！')
+            return
         df = self.cts.filterStocks()
         while True:
             print('======================================')

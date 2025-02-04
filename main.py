@@ -24,7 +24,7 @@ from CMacdBbiCaseStock import CMacdBbiCaseStock
 from queue import Queue
 import numpy as np
 
-from testMethod import CTestMethod
+from CTestMethod import CTestMethod
 
 # def strinstr(cond):
 #     for i,row in dbyz.iterrows():

@@ -19,6 +19,13 @@ from CCommon import log, warning, error
 # macd,bbi,obv 指标，批量处理
 
 class CMacdBbiCase(CCaseBase.CCaseBase):
+    _obj = None
+
+    @staticmethod
+    def create():
+        if CMacdBbiCase._obj is None:
+            CMacdBbiCase._obj = CMacdBbiCase()
+        return CMacdBbiCase._obj
 
     def __init__(self):
         super().__init__()
@@ -32,6 +39,10 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
     # region 接口ICaseRun
     def run(self):
         cdata = CRealData.CRealData.create()
+        data = cdata.pull()
+        if data is None:
+            print('没有缓存数据')
+            return None
         db = cdata.pull().drop_duplicates(subset='code')
         self.run_fight_macdbbi(db)
 
