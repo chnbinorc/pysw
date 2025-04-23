@@ -54,13 +54,14 @@ class CMethod:
         try:
             jobj = json.loads(data)
             print(f'{jobj["name"]} {jobj["command"]}')
+            vdata = jobj["data"]
             if jobj["command"] == 'load_module':
                 self.loadModule(jobj["name"])
             elif jobj["command"] == 'run':
                 module = self.loadModule(jobj["name"])
                 cls = getattr(module, jobj["name"])
                 obj = cls.create()
-            return obj.run()
+            return obj.run(vdata)
         except Exception as er:
             print(er)
 

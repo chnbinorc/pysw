@@ -47,6 +47,6 @@ class CCaseBase(ICaseRun):
         return
 
     # 运作
-    def run(self):
+    def run(self,data):
         print('CCaseBase')
         return

@@ -43,7 +43,7 @@ class CTestMethod:
         # print(db)
         index = 'N'
         market = CStockMarket()
-        dbind = market.runStockIndexStat(self.cts.getPreTradeDate(), index)
+        dbind = self.runStockIndexStat(self.cts.getPreTradeDate(), index)
         # dbths = self.cts.getIndexThsMembers('885918.TI')
         db[['ind_code', 'ind_range', 'ind_name']] = db.apply(
             lambda x: self.mergIndex2Stock(x.ts_code, dbind, index), axis=1, result_type="expand")
@@ -75,6 +75,54 @@ class CTestMethod:
                 retstr = [dk.iloc[0].ts_code, dk.iloc[0].level, dk.iloc[0]["name"]]
         return retstr
 
+    # 实时板块统计
+    def runStockIndexStat(self, date, index='N'):
+        # 概念成分
+        dfIndex = self.cts.getIndexTHS(index)
+        # 当前实时数据
+        # alldf = self.realdata.pull()
+        alldb = pd.read_csv(f'data/minute/{date}/14_57.csv', dtype={'code': str})
+        alldf = self.trans2LevelForm(alldb)
+        alldf['code'] = alldf.apply(lambda x: self.tools.getBackCode(x.code), axis=1)
+        db_all = alldf[['code', 'level']]
+        dfIndex['level'] = dfIndex.apply(self.calLevel, db_all=db_all, axis=1)
+        db = dfIndex.query('level != 0')[['ts_code', 'level', 'count', 'name']]
+        db.sort_values(by='level', ascending=False, inplace=True)
+        # print(db)
+        return db
+
+    def calLevel(self, row, db_all):
+        fname = f'{self.cts.ths_member}{row.ts_code}.csv'
+        perlevel = 0
+        if os.path.exists(fname):
+            dk = pd.read_csv(fname)
+            dk = pd.merge(dk, db_all, how='inner', left_on='con_code', right_on='code')
+            if dk.shape[0] > 0:
+                perlevel = round(dk['level'].mean(), 4)
+            else:
+                perlevel = 0
+        return perlevel
+
+    def trans2LevelForm(self,data):
+        alldf = data.copy().drop(
+            columns=['buy1_num', 'buy1_price', 'buy2_num', 'buy2_price', 'buy3_num', 'buy3_price', 'buy4_num',
+                     'buy4_price',
+                     'buy5_num', 'buy5_price',
+                     'sell1_num', 'sell1_price', 'sell2_num', 'sell2_price', 'sell3_num', 'sell3_price', 'sell4_num',
+                     'sell4_price', 'sell5_num', 'sell5_price'])
+
+        alldf[['levelW', 'level', 'done_num', 'done_money']] = data.apply(
+            lambda x: self.calLevelsrc(x.price, x.open, x.close, x.done_num, x.done_money), axis=1,
+            result_type="expand")
+        alldf.rename(columns={'buy1': 'buy', 'sell1': 'sell'}, inplace=True)
+        return alldf
+
+    def calLevelsrc(self, price, open, close, num, money):
+        levelW = 0 if float(open) == 0 else round((float(price) - float(open)) / float(open), 4)
+        level = 0 if float(close) == 0 else round((float(price) - float(close)) / float(close), 4)
+        done_num = round(float(num) / 100, 4)
+        done_money = round(float(money) / 10000, 4)
+        return [levelW, level, done_num, done_money]
     # endregion
 
     # 生成macdbbi双金叉模型数据，除非需重新计算，运行一次就好

@@ -61,6 +61,7 @@ class CDayWork:
                     ds = self.cts.getCodeDay(row.ts_code, start, now)
                     self.cts.updateDailyCode(row.ts_code, ds)
             except Exception as er:
+                error(row.ts_code)
                 error(er)
 
     # 更新日线行情数据，按股票代码

@@ -100,33 +100,6 @@ class CStockMarket(CMarket.CMarket):
         countdatetime = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f'{countdatetime}')
 
-    # 实时板块统计
-    # def runStockIndexStat(self, date, index='N'):
-    #     # 概念成分
-    #     dfIndex = self.cts.getIndexTHS(index)
-    #     # 当前实时数据
-    #     # alldf = self.realdata.pull()
-    #     alldf = pd.read_csv(f'data/minute/{date}/14_57.csv', dtype={'code': str})
-    #     alldf['code'] = alldf.apply(lambda x: self.tools.getBackCode(x.code), axis=1)
-    #     db_all = alldf[['code', 'level']]
-    #     dfIndex['level'] = dfIndex.apply(self.calLevel, db_all=db_all, axis=1)
-    #     db = dfIndex.query('level != 0')[['ts_code', 'level', 'count', 'name']]
-    #     db.sort_values(by='level', ascending=False, inplace=True)
-    #     # print(db)
-    #     return db
-
-    # def calLevel(self, row, db_all):
-    #     fname = f'{self.cts.ths_member}{row.ts_code}.csv'
-    #     perlevel = 0
-    #     if os.path.exists(fname):
-    #         dk = pd.read_csv(fname)
-    #         dk = pd.merge(dk, db_all, how='inner', left_on='con_code', right_on='code')
-    #         if dk.shape[0] > 0:
-    #             perlevel = round(dk['level'].mean(), 4)
-    #         else:
-    #             perlevel = 0
-    #     return perlevel
-
     def getStocksRealPrices(self, df):
         tl = int(df.shape[0] / 300) + 1
         total = None
@@ -257,6 +230,24 @@ class CStockMarket(CMarket.CMarket):
         except Exception as er:
             print(er)
 
+    # 中继数据，交易时间段内中断时使用
+    def continueData(self):
+        try:
+            db = self.realdata.pull()
+            if db is not None and db.shape[0] > 0:
+                return db
+            rData = self.cts.getLastTradeDate()
+            fpath = f'{self.path}/{self.minutepath}/{rData}/'
+            allfiles = os.listdir(fpath)
+            files = sorted(allfiles, key=lambda file: os.path.getctime(os.path.join(fpath, file)))
+            fname = files[len(files) - 1]
+            db = pd.read_csv(f'{fpath}{fname}', dtype={'code': str})
+            return db
+        except Exception as er:
+            error('中继数据失败')
+            return None
+
+
     def realModel(self):
         now = datetime.datetime.now().strftime('%Y%m%d')
         if not self.cts.isTradeDate(now):
@@ -264,12 +255,22 @@ class CStockMarket(CMarket.CMarket):
             return
         df = self.cts.filterStocks()
         while True:
+            # db = self.realdata.pull()
+            # if db is None or db.shape[0] == 0:
+            #     db = self.continueData()
+            #     if db is not None and db.shape[0] > 0:
+            #         self.realdata.push(db)
             print('======================================')
             if self.isTradeTime():
+                if self.dayworkflag:
+                    self.dayworkflag = False
                 log(f'数据监控中')
-                dk = self.getStocksRealPrices(df)
-                # dk = pd.read_csv('data/minute/20250127/14_25.csv')
-                self.realdata.push(dk)
+                try:
+                    dk = self.getStocksRealPrices(df)
+                    # dk = pd.read_csv('data/minute/20250127/14_25.csv')
+                    self.realdata.push(dk)
+                except Exception as err:
+                    log(err)
             else:
                 self.printEmptyTime()
 
@@ -284,8 +285,8 @@ class CStockMarket(CMarket.CMarket):
                 daywork.run()
                 self.dayworkflag = True
 
-            if self.exitflag:
-                break
+            # if self.exitflag:
+            #     break
 
     # 监控实时数据并缓存
     def monitor(self):

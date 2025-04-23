@@ -37,14 +37,15 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
         return
 
     # region 接口ICaseRun
-    def run(self):
+    def run(self,data):
         cdata = CRealData.CRealData.create()
-        data = cdata.pull()
-        if data is None:
+        alldb = cdata.pull()
+        if alldb is None:
             print('没有缓存数据')
-            return None
-        db = cdata.pull().drop_duplicates(subset='code')
-        self.run_fight_macdbbi(db)
+        else:
+            db = cdata.pull().drop_duplicates(subset='code')
+            self.run_fight_macdbbi(db)
+        return 'CMacdBbiCase.run_rep'
 
     # endregion
 
@@ -108,8 +109,9 @@ class CMacdBbiCase(CCaseBase.CCaseBase):
                 income.loc[len(income)] = math.nan
                 range.loc[len(range)] = math.nan
             else:
-                cond = f'trade_date >= {row.trade_date}'
-                subdb = pd.read_csv(fname).query(cond)
+                # cond = f'trade_date >= {row.trade_date}'
+                # subdb = pd.read_csv(fname).query(cond)
+                subdb = pd.read_csv(fname)
                 subdb.sort_values(by='trade_date', inplace=True)
                 range.loc[len(range)] = round((subdb.iloc[0]['close'] - subdb.iloc[0]['BBI']) / subdb.iloc[0]['BBI'], 3)
                 if len(subdb) == 1:
