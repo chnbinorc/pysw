@@ -42,11 +42,13 @@ if __name__ == '__main__':
     md.runMarket()
     md.runWebsocket()
 
+    # tmd.test_ths_ind_type()
+
     # tmd.analyDay()
     # tmd.test_checkData()
     # tmd.test_boardwin()
 
-    # tmd.doWork()
+    # tmd.dayWork()
 
     # tmd.doBakDataBat(20241125,20241227)
 

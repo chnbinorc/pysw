@@ -10,7 +10,7 @@
 	<DataConfigs>
 		<Config Name="tushare" token="39956a10efc09429356600eae9bf58a7519347b12364afe2b74a1873"/>
 		<!-- 目录 -->
-		<Config Name="local" path="data" daypath = "day" bakpath = "bak" blocktrade = "blocktrade" indicatorspath = "indicators" minutepath = "minute" predict = "predict" moneyflow = "moneyflow" temp="temp" moneyflow_ths="moneyflow_ths" moneyflow_ind_ths="moneyflow_ind_ths" ths_index="ths_index" ths_yz = "ths_yz" ths_member="ths_member" moneyflow_mkt_dc="moneyflow_mkt_dc"/>
+		<Config Name="local" path="data" daypath = "day" bakpath = "bak" blocktrade = "blocktrade" indicatorspath = "indicators" minutepath = "minute" predict = "predict" moneyflow = "moneyflow" temp="temp" moneyflow_ths="moneyflow_ths" moneyflow_ind_ths="moneyflow_ind_ths" moneyflow_cnt_ths = "moneyflow_cnt_ths" ths_index="ths_index" ths_yz = "ths_yz" ths_member="ths_member" ths_no="ths_no" moneyflow_mkt_dc="moneyflow_mkt_dc"/>
 		<config Name="THS" excludeindex="886072.TI-高股息精选,883303.TI-上证380成份股,883300.TI-沪深300样本股"/>
 	</DataConfigs>
 	<!-- 模块配置 -->

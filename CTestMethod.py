@@ -1,8 +1,12 @@
+import datetime
+import time
+
 import pandas as pd
 import os
 import numpy as np
 
 import CTools
+import Constants
 from CCommon import log, warning, error
 import CStrategy as strate
 import CTools as ctools
@@ -103,7 +107,7 @@ class CTestMethod:
                 perlevel = 0
         return perlevel
 
-    def trans2LevelForm(self,data):
+    def trans2LevelForm(self, data):
         alldf = data.copy().drop(
             columns=['buy1_num', 'buy1_price', 'buy2_num', 'buy2_price', 'buy3_num', 'buy3_price', 'buy4_num',
                      'buy4_price',
@@ -123,6 +127,7 @@ class CTestMethod:
         done_num = round(float(num) / 100, 4)
         done_money = round(float(money) / 10000, 4)
         return [levelW, level, done_num, done_money]
+
     # endregion
 
     # 生成macdbbi双金叉模型数据，除非需重新计算，运行一次就好
@@ -183,7 +188,7 @@ class CTestMethod:
         retdb = pd.read_csv('data/temp/all_top_analy.csv')
         print(retdb.shape[0])
         count = 0
-        for i,row in retdb.iterrows():
+        for i, row in retdb.iterrows():
             fname = f'data/indicators/{row.ts_code}.csv'
             db = pd.read_csv(fname)
             next = self.cts.getNextTradeDate(row.trade_date)
@@ -193,13 +198,13 @@ class CTestMethod:
                 if qdb.shape[0] > 0 and qdb.iloc[0].high != qdb.iloc[0].low:
                     buydb = buydb.append(row, ignore_index=True)
                     flag = False
-                elif qdb.shape[0] == 0 :
+                elif qdb.shape[0] == 0:
                     flag = False
                 next = self.cts.getNextTradeDate(next)
             if count % 20 == 0:
                 print(count)
             count += 1
-        buydb.to_csv('data/temp/all_top_analy_buy.csv',index=False)
+        buydb.to_csv('data/temp/all_top_analy_buy.csv', index=False)
 
     def test_boardwin(self):
         # db = pd.read_csv('data/temp/all_top_analy_buy.csv',dtype={'trade_date': int})
@@ -214,21 +219,21 @@ class CTestMethod:
         db = pd.read_csv('data/temp/all_top_analy_buy.csv', dtype={'trade_date': int})
         print(db.query('winflag == False').head(100))
 
-    def test_checkwin(self,db,row):
+    def test_checkwin(self, db, row):
         next = self.cts.getNextTradeDate(row.trade_date)
         fname = f'data/indicators/{row.ts_code}.csv'
         stockdb = pd.read_csv(fname).query(f'trade_date >= {next}')
         close = 0
         # 止盈5个点，止损3个点
         winrate = 0
-        for i,it in stockdb.iterrows():
+        for i, it in stockdb.iterrows():
             if close == 0:
                 if it.high == it.low:
                     continue
                 else:
                     close = it.close
                     continue
-            rate = round((it.close - close) / close,4)
+            rate = round((it.close - close) / close, 4)
             if rate > winrate:
                 winrate = rate
             else:
@@ -273,5 +278,96 @@ class CTestMethod:
     def test_webcoket(self):
         web = CWebSocket()
         web.start()
+
+    def test_ths_no(self):
+        # self.cts.updateTHSIndex()
+        # now = datetime.datetime.now().strftime('%Y%m%d')
+        # start = self.tools.getDateDelta(now, -Constants.ONE_YEARE_DAYS)
+        # log(f'开始更新板块资金流向（同花顺接口')
+        # self.cts.updateCntMoneyFlowTHS(start, now)
+        self.cts.updateThsNo()
+
+        # now = datetime.datetime.now().strftime('%Y%m%d')
+        # start = self.tools.getDateDelta(now, int(-Constants.ONE_YEARE_DAYS / 2))
+        # next = start
+        # while int(next)<int(now):
+        #     if self.cts.isTradeDate(next):
+        #         self.cts.updateMoneyFlowAll(next)
+        #     next = CTools.CTools.getDateDelta(next,1)
+        #     time.sleep(0.1)
+
+    # 行业资金分析
+
+    # 板块资金分析
+
+    # 个股资金分析
+    def test_ths_moneyflow(self):
+        # date = self.cts.getPreTradeDate()
+        # file = f'data/moneyflow_ths/all/' + str(date)
+        # db = pd.read_csv(file)
+        # db.sort_values(by=['net_amount'], ascending=False,inplace=True)
+        # db1 = db.head(50)
+        # print(db1)
+        # print('=======================================================')
+        # print(' ')
+        # print('=======================================================')
+        # db2 = db.tail(50)
+        # print(db2)
+        ret = self.cts.getStockIndex2('300674.SZ', 'N')
+        print(ret)
+
+    def test_ths_ind(self):
+        db = self.cts.filterStocks2('float_mv < 120')
+        print(db.shape[0])
+        db = self.cts.filterStocks2('float_mv >= 120')
+        print(db.shape[0])
+        db = self.cts.filterStocks2('float_mv > 50 and float_mv < 70')
+        print(db.shape[0])
+
+    def test_ths_ind_type(self, date=datetime.datetime.now().strftime('%Y%m%d')):
+        # db = self.cts.filterStocks()
+        # print(db.shape[0])
+        # print(self.cts.getThsIndex())
+        # return
+
+        df = self.cts.queryStockbaseBoardCust(Constants.MAIN_CONDITION_STR)
+        dk = df['ts_code']
+
+        da = self.cts.queryBakBasic("industry != '银行'")
+        Bool = da.name.str.contains("ST")  # 去除ST
+        da = da[~Bool]
+        da = pd.merge(da, dk, left_on='ts_code', right_on='ts_code', how='inner')
+        idx = 0
+        alldb = None
+        for i, row in self.cts.getThsIndex().iterrows():
+            # if idx < 5:
+            #     idx += 1
+            #     continue
+            # print(f'{row["ts_code"]} {row["name"]}')
+            file = f'data/ths_member/{row.ts_code}.csv'
+            if not os.path.exists(file):
+                print(f'文件不存在 {file} {row["name"]}')
+                continue
+            dbmembers = pd.read_csv(file)
+            subdb = pd.merge(da, dbmembers, left_on='ts_code', right_on='con_code', how='inner')
+            if subdb.shape[0] == 0:
+                continue
+            subdb['rate'] = subdb.apply(lambda x: round((x.close - x.pre_close) / x.pre_close, 3), axis=1)
+            subdb['con_code'] = subdb.apply(lambda x: row["ts_code"], axis=1)
+            subdb['con_name'] = subdb.apply(lambda x: row["name"], axis=1)
+            subdb.sort_values(by='rate',inplace=True,ascending=False)
+            # ret = subdb.query('rate > 0.09')
+            ret = subdb.head(3)
+            if ret.shape[0] > 0:
+                if alldb is None:
+                    alldb = ret.copy()
+                else:
+                    alldb = pd.concat([alldb, ret], ignore_index=True, axis=0)
+            # subdb.sort_values(by=['float_mv'],inplace=True)
+            # print(subdb[['trade_date','ts_code_x','total_mv','float_mv','rate','name']])
+            # break
+        if not alldb is None:
+            print(print(alldb[['trade_date', 'ts_code_x', 'total_mv', 'float_mv', 'rate', 'name','con_code','con_name']]))
+    # 每日涨停分析
 
     # endregion

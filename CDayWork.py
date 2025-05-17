@@ -157,8 +157,10 @@ class CDayWork:
     def updateIndexMoneyFlow_THS(self):
         now = datetime.datetime.now().strftime('%Y%m%d')
         start = self.tools.getDateDelta(now, -Constants.ONE_YEARE_DAYS)
-        log(f'开始更新板块资金流向（同花顺接口')
+        log(f'开始更新行业资金流向（同花顺接口')
         self.cts.updateIndMoneyFlowTHS(start,now)
+        log(f'开始更新板块资金流向（同花顺接口')
+        self.cts.updateCntMoneyFlowTHS(start, now)
 
     # 更新同花顺板块行业以及成分
     def updateTHSIndex(self):
