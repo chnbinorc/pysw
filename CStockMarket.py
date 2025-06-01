@@ -8,6 +8,7 @@ import time
 import CStrategy as strate
 import CTools as ctools
 import CTushare as cts
+from CDataPrepare import CDataPrepare
 from CDayWork import CDayWork
 from CCommon import log, warning, error
 from CMacdBbiCase import CMacdBbiCase
@@ -16,6 +17,13 @@ from ClsMThreadPool import ClsMTPool
 
 
 class CStockMarket(CMarket.CMarket):
+    _obj = None
+    @staticmethod
+    def create(fntrigger=None):
+        if CStockMarket._obj is None:
+            CStockMarket._obj = CStockMarket(fntrigger)
+        return CStockMarket._obj
+
     def __init__(self, fntrigger=None):
         super().__init__()
         self.cts = cts.CTushare()
@@ -36,6 +44,7 @@ class CStockMarket(CMarket.CMarket):
         self.exitflag = False
         self.isReplay = False
         self.minutepath = self.configs.getDataConfig('local', 'minutepath')
+        self.replayModelSeq = 0.1
 
         self.url = 'http://hq.sinajs.cn/list='
         self.headers = {'Accept': '/',
@@ -223,7 +232,7 @@ class CStockMarket(CMarket.CMarket):
                     fname = os.path.join(fpath, fl)
                     db = pd.read_csv(fname,dtype={'code': str})
                     self.realdata.push(db,False)
-                    time.sleep(0.1)
+                    time.sleep(self.replayModelSeq)
                     # alldb = db if alldb is None else pd.concat([alldb, db], ignore_index=True, axis=0)
                 # alldb.sort_values(by='time', inplace=True)
                 # self.realdata.push(alldb, False)
@@ -292,7 +301,12 @@ class CStockMarket(CMarket.CMarket):
     def monitor(self):
         try:
             if self.isReplay:
-                self.replayModel()
+                print('开始模拟复盘')
+                print('数据准备')
+                case = CDataPrepare.create()
+                case.run('20250530')
+                print('数据已完成准备...')
+                self.replayModel('20250530')
             else:
                 self.realModel()
         except Exception as ex:

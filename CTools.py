@@ -21,7 +21,7 @@ class CTools:
     @staticmethod
     def getBackCode(code):
         cd = CTools.getOnlyCode(code)
-        if cd.startswith('600') or cd.startswith('601') or cd.startswith('603') or cd.startswith('688'):
+        if cd.startswith('60') or cd.startswith('68'):
             return cd + '.SH'
         elif cd.startswith('4') or cd.startswith('8'):
             return cd + '.BJ'

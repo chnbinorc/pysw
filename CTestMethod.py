@@ -4,13 +4,16 @@ import time
 import pandas as pd
 import os
 import numpy as np
+from pypinyin import pinyin, Style
 
 import CTools
 import Constants
+from CCatchDragonCase import CCatchDragonCase
 from CCommon import log, warning, error
 import CStrategy as strate
 import CTools as ctools
 import CTushare as cts
+from CDataPrepare import CDataPrepare
 from CDayWork import CDayWork
 from CMacdBbiCaseStock import CMacdBbiCaseStock
 from CMacdBbiCase import CMacdBbiCase
@@ -324,11 +327,26 @@ class CTestMethod:
         db = self.cts.filterStocks2('float_mv > 50 and float_mv < 70')
         print(db.shape[0])
 
+    def getPinyin(self, text):
+        try:
+            # 获取每个字的拼音首字母（自动处理多音字取第一个读音）
+            initials = [p[0][0].upper() for p in pinyin(text, style=Style.FIRST_LETTER)]
+            return ''.join(initials)
+        except:
+            # 异常处理：遇到非汉字字符时保留原字符
+            return ''.join([c.upper() if not '\u4e00' <= c <= '\u9fff' else '' for c in text])
+
     def test_ths_ind_type(self, date=datetime.datetime.now().strftime('%Y%m%d')):
         # db = self.cts.filterStocks()
         # print(db.shape[0])
         # print(self.cts.getThsIndex())
         # return
+        # cpre = CDataPrepare.create()
+        # db = cpre.getData()
+
+        print(self.getPinyin('自贸区'))
+
+        return
 
         df = self.cts.queryStockbaseBoardCust(Constants.MAIN_CONDITION_STR)
         dk = df['ts_code']
@@ -355,7 +373,7 @@ class CTestMethod:
             subdb['rate'] = subdb.apply(lambda x: round((x.close - x.pre_close) / x.pre_close, 3), axis=1)
             subdb['con_code'] = subdb.apply(lambda x: row["ts_code"], axis=1)
             subdb['con_name'] = subdb.apply(lambda x: row["name"], axis=1)
-            subdb.sort_values(by='rate',inplace=True,ascending=False)
+            subdb.sort_values(by='rate', inplace=True, ascending=False)
             # ret = subdb.query('rate > 0.09')
             ret = subdb.head(3)
             if ret.shape[0] > 0:
@@ -367,7 +385,63 @@ class CTestMethod:
             # print(subdb[['trade_date','ts_code_x','total_mv','float_mv','rate','name']])
             # break
         if not alldb is None:
-            print(print(alldb[['trade_date', 'ts_code_x', 'total_mv', 'float_mv', 'rate', 'name','con_code','con_name']]))
+            print(alldb[['trade_date', 'ts_code_x', 'total_mv', 'float_mv', 'rate', 'name', 'con_code', 'con_name']])
+
+    # 每日交易数据统计
+    def test_trade_count(self):
+        case = CCatchDragonCase.create()
+        sdate = '20250518'
+        start = self.cts.getNextTradeDate(sdate)
+        now = datetime.datetime.now().strftime('%Y%m%d')
+        alldb = None
+        while int(start) <= int(now):
+            # case.qdate = start
+            db = case.getData(start)
+            if alldb is None:
+                grouped = db.groupby('ind_name')
+                itemcount = grouped.size().reset_index(name='counts')
+                itemcount.sort_values(by=['ind_name'],inplace=True)
+                alldb = pd.DataFrame(itemcount)
+            alldb[f'{start}'] = alldb.apply(lambda x: self.count_rise_greater_than_5(x,db),axis=1)
+            start = self.cts.getNextTradeDate(start)
+        cols=list(alldb.columns)
+        cols.append(cols.pop(1))
+        cols.append(cols.pop(0))
+        alldb=alldb[cols]
+        print(alldb)
+        # d1 = db.query('rate > 0.09')
+        # group1 = d1.groupby(['ind_code']).size()
+        # t = group1.to_frame(name='count').rename_axis('ind_code').reset_index()
+        # print(t)
+
+    def count_rise_greater_than_5(self,row,db):
+        qdb = db.query(f'ind_name == "{row.ind_name}" and rate > 0.05')
+        return qdb.shape[0]
+
+
     # 每日涨停分析
+    def test_rise_top(self):
+        pre = CDataPrepare.create()
+        dbpre = pre.getData()
+        db = self.cts.filterStocks()
+        columns = ['s0', 's1', 's2', 's3', 's4', 'code']
+        retdb = pd.DataFrame(columns=columns)
+        for i, row in db.iterrows():
+            diff = self.calRiseTop(row)
+            retdb.loc[len(retdb)] = diff.values
+        da = retdb.query('s2 > 0.09 and s0 < 0.03 and s1 < 0.03 ')
+        da = pd.merge(da,dbpre, left_on='code', right_on='code', how='inner')
+        da.sort_values(by=['ind_code'], inplace=True)
+        print(da)
+
+    def calRiseTop(self, row):
+        file = f'data/indicators/{row.ts_code}.csv'
+        if not os.path.exists(file):
+            return [row.ts_code, 0, 0, 0, 0, 0]
+        dk = pd.read_csv(file)
+        da = dk.tail(5)
+        diff = da.apply(lambda x: round((x.close - x.pre_close) / x.pre_close, 2), axis=1)
+        diff.loc[len(diff)] = CTools.CTools.getOnlyCode(row.ts_code)
+        return diff
 
     # endregion

@@ -1,4 +1,5 @@
 import os.path
+import datetime
 
 import CConfigs
 from CTools import CTools
@@ -33,6 +34,12 @@ class CCaseBase(ICaseRun):
         if not os.path.exists(self.stockTempPath):
             os.mkdir(self.stockTempPath)
 
+    def isValidDate(self, date_str, date_format):
+        try:
+            datetime.datetime.strptime(date_str, date_format)
+            return True
+        except ValueError:
+            return False
 
     # 准备数据
     def readyData(self):

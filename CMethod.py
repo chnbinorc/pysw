@@ -26,7 +26,7 @@ class CMethod:
     def __init__(self):
         self.configs = CConfigs.CConfigs()
         self.mttool = ClsMTPool.Create()
-        self.market = CStockMarket(self.realDataTrigger)
+        self.market = CStockMarket.create(self.realDataTrigger)
         self.websocket = CWebSocket(self.websocketTrigger)
         sys.path.append('/')
         return
@@ -35,7 +35,7 @@ class CMethod:
         return
 
     def runMarket(self):
-        # self.market.setReplay(True)
+        self.market.setReplay(True)
         self.market.run()
 
     def runWebsocket(self):
@@ -43,6 +43,7 @@ class CMethod:
 
     # 触发器，实时数据获取时触发
     def realDataTrigger(self):
+        return
         try:
             print('实时数据获取时触发')
             # case = CMacdBbiCase()
@@ -53,14 +54,14 @@ class CMethod:
     def websocketTrigger(self, data):
         try:
             jobj = json.loads(data)
-            print(f'{jobj["name"]} {jobj["command"]}')
+            # print(f'{jobj["name"]} {jobj["command"]}')
             vdata = jobj["data"]
             if jobj["command"] == 'load_module':
                 self.loadModule(jobj["name"])
             elif jobj["command"] == 'run':
                 module = self.loadModule(jobj["name"])
-                cls = getattr(module, jobj["name"])
-                obj = cls.create()
+            cls = getattr(module, jobj["name"])
+            obj = cls.create()
             return obj.run(vdata)
         except Exception as er:
             print(er)

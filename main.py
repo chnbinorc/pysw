@@ -39,8 +39,14 @@ if __name__ == '__main__':
     strate = strate.CStrategy()
     tmd = CTestMethod()
 
-    md.runMarket()
-    md.runWebsocket()
+    tmd.test_trade_count()
+
+    # md.runMarket()
+    # md.runWebsocket()
+
+
+    # tmd.test_rise_top()
+
 
     # tmd.test_ths_ind_type()
 
