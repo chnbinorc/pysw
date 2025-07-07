@@ -306,6 +306,7 @@ class CStockMarket(CMarket.CMarket):
                 case = CDataPrepare.create()
                 case.run('20250530')
                 print('数据已完成准备...')
+                time.sleep(10)
                 self.replayModel('20250530')
             else:
                 self.realModel()

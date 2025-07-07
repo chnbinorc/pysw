@@ -108,7 +108,7 @@ class CDataPrepare(CCaseBase.CCaseBase):
         if not os.path.exists(file):
             print(file)
             return -1;
-        db = pd.read_csv(file).tail(Constants.ONE_MONTH_DAYS * 3 + 15)
+        db = pd.read_csv(file).query(f'trade_date < {self.qdate}').tail(Constants.ONE_MONTH_DAYS * 3 + 15)
         # print(db.iloc[0]['trade_date'])
         tmpdb = db.tail(1)
         price = tmpdb.iloc[0]['close']
@@ -129,7 +129,7 @@ class CDataPrepare(CCaseBase.CCaseBase):
             print(file)
             return count;
         else:
-            db = pd.read_csv(file).tail(10)
+            db = pd.read_csv(file).query(f'trade_date < {self.qdate}').tail(10)
             db['rise'] = db.apply(
                 lambda x: round((float(x.close) - float(x.pre_close)) / float(x.pre_close) * 100, 3), axis=1)
             count = db['rise'][db['rise'] > 4.5].count()

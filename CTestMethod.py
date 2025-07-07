@@ -397,6 +397,9 @@ class CTestMethod:
         while int(start) <= int(now):
             # case.qdate = start
             db = case.getData(start)
+            if db.shape[0] == 0:
+                start = self.cts.getNextTradeDate(start)
+                continue
             if alldb is None:
                 grouped = db.groupby('ind_name')
                 itemcount = grouped.size().reset_index(name='counts')
@@ -420,16 +423,30 @@ class CTestMethod:
 
 
     # 每日涨停分析
-    def test_rise_top(self):
+    def test_rise_top_query(self):
+        sqlstr = 's6 > 0.05 and s7 > 0.05'
+        sqlstr = 's6 > 0.05 and s7 > 0.05'
+
+        td = 6
+        tk = 7
+        sqlstr = f's{td} + s{tk} > 0.1'
+        for x in range(0,9):
+            if not (x == td or x == tk):
+                sqlstr = f'{sqlstr} and s{x} < 0.03'
+
+        self.test_rise_top(sqlstr)
+
+
+    def test_rise_top(self,sqlstr = 's0 > 0'):
         pre = CDataPrepare.create()
         dbpre = pre.getData()
         db = self.cts.filterStocks()
-        columns = ['s0', 's1', 's2', 's3', 's4', 'code']
+        columns = ['s0', 's1', 's2', 's3', 's4','s5', 's6', 's7', 's8', 's9', 'code']
         retdb = pd.DataFrame(columns=columns)
         for i, row in db.iterrows():
             diff = self.calRiseTop(row)
             retdb.loc[len(retdb)] = diff.values
-        da = retdb.query('s2 > 0.09 and s0 < 0.03 and s1 < 0.03 ')
+        da = retdb.query(f'{sqlstr}')
         da = pd.merge(da,dbpre, left_on='code', right_on='code', how='inner')
         da.sort_values(by=['ind_code'], inplace=True)
         print(da)
@@ -437,9 +454,9 @@ class CTestMethod:
     def calRiseTop(self, row):
         file = f'data/indicators/{row.ts_code}.csv'
         if not os.path.exists(file):
-            return [row.ts_code, 0, 0, 0, 0, 0]
+            return [row.ts_code, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         dk = pd.read_csv(file)
-        da = dk.tail(5)
+        da = dk.tail(10)
         diff = da.apply(lambda x: round((x.close - x.pre_close) / x.pre_close, 2), axis=1)
         diff.loc[len(diff)] = CTools.CTools.getOnlyCode(row.ts_code)
         return diff

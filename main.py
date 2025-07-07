@@ -1,9 +1,11 @@
 # -*- coding: UTF-8 -*-
 import datetime
 import math
+import os
 import time
 
 import CConfigs as configs
+import CStockInfoCase
 import CStrategy
 import CTushare
 import CTushare as cts
@@ -12,6 +14,7 @@ import easyocr
 
 import Constants
 from CDayWork import CDayWork
+from CMockDataCase import CMockDataCase
 from CStockMarket import CStockMarket
 from CTools import CTools
 
@@ -39,14 +42,15 @@ if __name__ == '__main__':
     strate = strate.CStrategy()
     tmd = CTestMethod()
 
-    tmd.test_trade_count()
+    # tmd.dayWork()
+    # tmd.test_trade_count()
+    # tmd.test_rise_top_query()
 
-    # md.runMarket()
-    # md.runWebsocket()
+    # case = CStockInfoCase.CStockinfoCase.create()
+    # print(case.run('603838.SH'))
 
-
-    # tmd.test_rise_top()
-
+    md.runMarket()
+    md.runWebsocket()
 
     # tmd.test_ths_ind_type()
 
@@ -54,7 +58,7 @@ if __name__ == '__main__':
     # tmd.test_checkData()
     # tmd.test_boardwin()
 
-    # tmd.dayWork()
+
 
     # tmd.doBakDataBat(20241125,20241227)
 

@@ -22,6 +22,7 @@ class CCaseBase(ICaseRun):
         minutepath = configs.getDataConfig('local', 'minutepath')
         predictpath = configs.getDataConfig('local','predict')
         temppath = configs.getDataConfig('local','temp')
+        moneyflow_ths = configs.getDataConfig('local', 'moneyflow_ths')  # 个股资金流向_同花顺
 
         self.stockPriceDayPath = '{0}/{1}/'.format(path, daypath)  # 日线行情数据
         self.stockBakDayPath = '{0}/{1}/'.format(path, bakpath)  # 备用行情数据路径
@@ -29,6 +30,8 @@ class CCaseBase(ICaseRun):
         self.stockPriceMinPath = '{0}/{1}/'.format(path, minutepath)  # 日线分钟行情数据路径
         self.stockPredictPath = f'{path}/{predictpath}/'  # 预测数据路径
         self.stockTempPath = f'{path}/{temppath}/'  # 临时目录
+        self.moneyFlowPath_ths = f'{CConfigs.dataPath}/{moneyflow_ths}/'
+
         if not os.path.exists(self.stockPredictPath):
             os.mkdir(self.stockPredictPath)
         if not os.path.exists(self.stockTempPath):

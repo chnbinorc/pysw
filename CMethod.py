@@ -35,7 +35,7 @@ class CMethod:
         return
 
     def runMarket(self):
-        self.market.setReplay(True)
+        # self.market.setReplay(True)
         self.market.run()
 
     def runWebsocket(self):
@@ -54,21 +54,27 @@ class CMethod:
     def websocketTrigger(self, data):
         try:
             jobj = json.loads(data)
-            # print(f'{jobj["name"]} {jobj["command"]}')
+            # print(f'{jobj["name"]} {jobj["command"]} {jobj["data"]}')
             vdata = jobj["data"]
             if jobj["command"] == 'load_module':
                 self.loadModule(jobj["name"])
             elif jobj["command"] == 'run':
                 module = self.loadModule(jobj["name"])
+            elif jobj["command"] == 'run_repeat':
+                module = self.loadModule(jobj["name"],True)
+
             cls = getattr(module, jobj["name"])
             obj = cls.create()
             return obj.run(vdata)
         except Exception as er:
             print(er)
 
-    def loadModule(self, name):
+    def loadModule(self, name,repeat=False):
         if name in sys.modules:
-            module = importlib.reload(sys.modules[name])
+            if repeat:
+                module = sys.modules[name]
+            else:
+                module = importlib.reload(sys.modules[name])
         else:
             module = importlib.import_module(name)
         return module
